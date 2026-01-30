@@ -96,7 +96,7 @@ After connecting, continue below.
 Choose Installation Method
 --------------------------------------------------
 
-### You have 6 different methods:
+### You have 7 different methods:
 
 | Method | Difficulty | Best For | Port |
 |--------|-----------|----------|------|
@@ -106,6 +106,7 @@ Choose Installation Method
 | **Layer 7: V2Ray VMess** | ⭐⭐⭐⭐ Advanced | Hard censorship | 443 |
 | **Layer 7: V2Ray VLESS** | ⭐⭐⭐⭐ Advanced | Hard censorship | 443 |
 | **Layer 7: Real Domain (VLESS/Trojan)** | ⭐⭐⭐⭐⭐ Advanced | Best security | 443 |
+| **Layer 7: Iran Optimized (gRPC)** | ⭐⭐⭐⭐⭐ Advanced | Iran DPI bypass | 443 |
 
 ---
 
@@ -120,6 +121,7 @@ However, the connection quality and internet bandwidth (speed) mainly depend on 
 - [Layer 7: V2Ray VMess](./layer7-v2ray-vmess/README.en.md) - Advanced obfuscation
 - [Layer 7: V2Ray VLESS](./layer7-v2ray-vless/README.en.md) - Modern and lightweight protocol
 - [Layer 7: Real Domain + TLS](./layer7-real-domain/README.en.md) - Best overall method
+- [Layer 7: Iran Optimized (gRPC)](./layer7-iran-optimized/README.en.md) - Tuned for Iranian ISP DPI/throttling
 
 ---
 

@@ -111,7 +111,7 @@ const translations = {
         activate_layer: "Activate Layer",
         switching_layer: "Switching Layer...",
         switch_complete: "Layer switch complete!",
-        reload_dashboard: "Reload Dashboard",
+        switch_back_settings: "Back to Settings",
         switch_phase_uninstalling: "Uninstalling",
         switch_phase_installing: "Installing",
         switch_phase_reinstalling_panel: "Reinstalling panel",
@@ -223,7 +223,7 @@ const translations = {
         activate_layer: "\u0641\u0639\u0627\u0644\u200c\u0633\u0627\u0632\u06cc \u0644\u0627\u06cc\u0647",
         switching_layer: "\u062f\u0631 \u062d\u0627\u0644 \u062a\u063a\u06cc\u06cc\u0631 \u0644\u0627\u06cc\u0647...",
         switch_complete: "\u062a\u063a\u06cc\u06cc\u0631 \u0644\u0627\u06cc\u0647 \u06a9\u0627\u0645\u0644 \u0634\u062f!",
-        reload_dashboard: "\u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc \u0645\u062c\u062f\u062f \u062f\u0627\u0634\u0628\u0648\u0631\u062f",
+        switch_back_settings: "\u0628\u0627\u0632\u06af\u0634\u062a \u0628\u0647 \u062a\u0646\u0638\u06cc\u0645\u0627\u062a",
         switch_phase_uninstalling: "\u062d\u0630\u0641 \u0644\u0627\u06cc\u0647 \u0641\u0639\u0644\u06cc",
         switch_phase_installing: "\u0646\u0635\u0628 \u0644\u0627\u06cc\u0647 \u062c\u062f\u06cc\u062f",
         switch_phase_reinstalling_panel: "\u0646\u0635\u0628 \u0645\u062c\u062f\u062f \u067e\u0646\u0644",
@@ -877,6 +877,7 @@ function showSwitchProgress() {
     document.getElementById("switchLog").textContent = "";
     document.getElementById("switchError").style.display = "none";
     document.getElementById("switchDone").style.display = "none";
+    document.getElementById("switchBackBtn").style.display = "none";
     document.getElementById("switchProgressBar").className = "progress-fill";
 }
 
@@ -930,25 +931,45 @@ function updateSwitchUI(data) {
     bar.style.width = data.progress_pct + "%";
     text.textContent = data.progress_pct + "%";
 
-    const phaseKey = "switch_phase_" + data.phase;
-    badge.textContent = t(phaseKey) || data.phase;
-    badge.className = "phase-badge phase-" + data.phase;
+    if (data.phase) {
+        const phaseKey = "switch_phase_" + data.phase;
+        badge.textContent = t(phaseKey) || data.phase;
+        badge.className = "phase-badge phase-" + data.phase;
+        badge.style.display = "";
+    } else {
+        badge.style.display = "none";
+    }
 
     if (data.log_lines && data.log_lines.length > 0) {
         logEl.textContent = data.log_lines.join("\n");
         logEl.scrollTop = logEl.scrollHeight;
     }
 
+    const backBtn = document.getElementById("switchBackBtn");
+
     if (data.phase === "error") {
         errorDiv.textContent = data.error || "Unknown error";
         errorDiv.style.display = "block";
-        document.getElementById("layerCards").style.display = "";
+        backBtn.style.display = "block";
+        bar.className = "progress-fill error-fill";
     }
 
     if (data.phase === "done") {
         doneDiv.style.display = "flex";
+        backBtn.style.display = "block";
         bar.className = "progress-fill success-fill";
     }
+}
+
+async function resetSwitchAndShowLayers() {
+    try {
+        await api("/api/layer/switch/clear", { method: "POST" });
+    } catch (err) {
+        // best effort
+    }
+    document.getElementById("layerSwitchStatus").style.display = "none";
+    document.getElementById("layerCards").style.display = "";
+    loadLayers();
 }
 
 /* ─── Utilities ─────────────────────────────────────────────────────────── */

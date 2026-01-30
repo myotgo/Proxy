@@ -264,8 +264,10 @@
                 <div id="switchError" class="error-message" style="display:none"></div>
                 <div id="switchDone" class="switch-done" style="display:none">
                     <span data-i18n="switch_complete">Layer switch complete!</span>
-                    <button class="btn btn-primary" onclick="window.location.reload()">
-                        <span data-i18n="reload_dashboard">Reload Dashboard</span>
+                </div>
+                <div id="switchBackBtn" style="display:none;margin-top:16px;text-align:center">
+                    <button class="btn btn-primary" onclick="resetSwitchAndShowLayers()">
+                        <span data-i18n="switch_back_settings">Back to Settings</span>
                     </button>
                 </div>
             </div>

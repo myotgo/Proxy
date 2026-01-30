@@ -913,6 +913,10 @@ body {
     background: var(--success);
 }
 
+.progress-fill.error-fill {
+    background: var(--danger, #ef4444);
+}
+
 .switch-progress-text {
     font-size: 0.85rem;
     color: var(--text-dim);

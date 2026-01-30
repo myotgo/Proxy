@@ -749,17 +749,35 @@ class LayerManager:
             # Phase 1: Uninstall current layer
             update("uninstalling", 5, "Downloading uninstall script...")
             uninstall_url = f"{GITHUB_RAW_BASE}/common/uninstall.sh"
+            dl = subprocess.run(
+                ["curl", "-fsSL", uninstall_url, "-o", "/tmp/proxy-uninstall.sh"],
+                capture_output=True, text=True, timeout=60, env=env
+            )
+            if dl.returncode != 0:
+                raise RuntimeError(f"Failed to download uninstall script: {dl.stderr[-200:]}")
             result = subprocess.run(
-                ["bash", "-c", f"curl -fsSL '{uninstall_url}' | bash"],
+                ["bash", "/tmp/proxy-uninstall.sh"],
                 capture_output=True, text=True, timeout=300, env=env
             )
             if result.returncode != 0:
                 raise RuntimeError(f"Uninstall failed: {result.stderr[-500:]}")
             update("uninstalling", 20, "Uninstall complete")
 
+            # Persist state before install (survives process restart if install restarts panel)
+            state_file = DATA_DIR / "switch_state.json"
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            with open(state_file, "w") as f:
+                json.dump({"target_layer": target_layer_id, "phase": "installing"}, f)
+
             # Phase 2: Install target layer
             update("installing", 25, f"Downloading {target_layer_id} install script...")
             install_url = f"{GITHUB_RAW_BASE}/{target_layer_id}/install.sh"
+            dl = subprocess.run(
+                ["curl", "-fsSL", install_url, "-o", "/tmp/proxy-install.sh"],
+                capture_output=True, text=True, timeout=60, env=env
+            )
+            if dl.returncode != 0:
+                raise RuntimeError(f"Failed to download install script: {dl.stderr[-200:]}")
 
             layer_def = next((l for l in LAYER_DEFINITIONS if l["id"] == target_layer_id), None)
             needs_domain = layer_def and layer_def["needs_domain"]
@@ -772,14 +790,14 @@ class LayerManager:
                     stdin_lines += "\n"
                 update("installing", 30, f"Installing {target_layer_id} (domain: {domain})...")
                 result = subprocess.run(
-                    ["bash", "-c", f"curl -fsSL '{install_url}' | bash"],
+                    ["bash", "/tmp/proxy-install.sh"],
                     input=stdin_lines,
                     capture_output=True, text=True, timeout=600, env=env
                 )
             else:
                 update("installing", 30, f"Installing {target_layer_id}...")
                 result = subprocess.run(
-                    ["bash", "-c", f"curl -fsSL '{install_url}' | bash"],
+                    ["bash", "/tmp/proxy-install.sh"],
                     capture_output=True, text=True, timeout=600, env=env
                 )
 
@@ -787,22 +805,21 @@ class LayerManager:
                 raise RuntimeError(f"Install failed: {result.stderr[-500:]}")
             update("installing", 80, "Layer installation complete")
 
-            # Persist state before panel reinstall (survives process restart)
-            state_file = DATA_DIR / "switch_state.json"
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
-            with open(state_file, "w") as f:
-                json.dump({"target_layer": target_layer_id, "phase": "reinstalling_panel"}, f)
-
             # Phase 3: Reinstall panel with new layer flag
             update("reinstalling_panel", 85, "Reinstalling panel with new layer...")
             panel_url = f"{GITHUB_RAW_BASE}/panel/install-panel.sh"
-            result = subprocess.run(
-                ["bash", "-c", f"curl -fsSL '{panel_url}' | bash -s -- --layer={target_layer_id}"],
-                capture_output=True, text=True, timeout=300, env=env
+            dl = subprocess.run(
+                ["curl", "-fsSL", panel_url, "-o", "/tmp/proxy-panel-install.sh"],
+                capture_output=True, text=True, timeout=60, env=env
             )
-            if result.returncode != 0:
-                update("reinstalling_panel", 90,
-                       f"Panel reinstall warning: {result.stderr[-200:]}")
+            if dl.returncode == 0:
+                result = subprocess.run(
+                    ["bash", "/tmp/proxy-panel-install.sh", f"--layer={target_layer_id}"],
+                    capture_output=True, text=True, timeout=300, env=env
+                )
+                if result.returncode != 0:
+                    update("reinstalling_panel", 90,
+                           f"Panel reinstall warning: {result.stderr[-200:]}")
 
             # Phase 4: Update in-memory state
             update("finalizing", 95, "Updating configuration...")
@@ -1493,6 +1510,8 @@ class PanelHandler(http.server.BaseHTTPRequestHandler):
             self._handle_service_restart()
         elif path == "/api/layer/switch":
             self._handle_layer_switch()
+        elif path == "/api/layer/switch/clear":
+            self._handle_switch_clear()
         else:
             self.send_error(404)
 
@@ -1713,6 +1732,25 @@ class PanelHandler(http.server.BaseHTTPRequestHandler):
         status = 200 if result.get("success") else 400
         self._send_json(result, status)
 
+    def _handle_switch_clear(self):
+        """Reset switch state and clean up state file."""
+        global _switch_state
+        _switch_state = {
+            "in_progress": False,
+            "phase": "",
+            "target_layer": "",
+            "progress_pct": 0,
+            "log_lines": [],
+            "error": "",
+        }
+        state_file = DATA_DIR / "switch_state.json"
+        if state_file.exists():
+            try:
+                os.unlink(str(state_file))
+            except Exception:
+                pass
+        self._send_json({"success": True})
+
     def _handle_service_logs(self):
         service = _layer_mgr.get_service_name()
         try:
@@ -1803,7 +1841,7 @@ def main():
         try:
             with open(switch_state_file) as f:
                 saved_switch = json.load(f)
-            os.unlink(str(switch_state_file))
+            # Keep state file until frontend clears it via /api/layer/switch/clear
             _switch_state["phase"] = "done"
             _switch_state["progress_pct"] = 100
             _switch_state["target_layer"] = saved_switch.get("target_layer", "")
