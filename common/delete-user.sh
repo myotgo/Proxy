@@ -68,10 +68,14 @@ main() {
     sleep 1
 
     echo "Removing user account..."
-    deluser --remove-home "$USERNAME" || true
+    userdel -r "$USERNAME" 2>/dev/null || deluser --remove-home "$USERNAME" 2>/dev/null || {
+        log "WARN: Could not remove system user $USERNAME, continuing with config cleanup"
+    }
 
-    # Remove Match block for this user
-    sed -i "/^Match User $USERNAME$/,/^$/d" "$SSHD_CONFIG"
+    # Remove Match block for this user (use temp file to avoid sed -i issues)
+    sed "/^Match User $USERNAME$/,/^$/d" "$SSHD_CONFIG" > /tmp/sshd_config.tmp
+    cp /tmp/sshd_config.tmp "$SSHD_CONFIG"
+    rm -f /tmp/sshd_config.tmp
 
     # Validate SSH config
     if ! sshd -t; then

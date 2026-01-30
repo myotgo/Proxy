@@ -113,8 +113,10 @@ main() {
         echo "✓ User already exists, password updated"
     fi
 
-    # Remove existing Match block for this user
-    sed -i "/^Match User $USERNAME$/,/^$/d" "$SSHD_CONFIG"
+    # Remove existing Match block for this user (use temp file to avoid sed -i issues)
+    sed "/^Match User $USERNAME$/,/^$/d" "$SSHD_CONFIG" > /tmp/sshd_config.tmp
+    cp /tmp/sshd_config.tmp "$SSHD_CONFIG"
+    rm -f /tmp/sshd_config.tmp
 
     # Append clean Match block
     cat <<EOF >> "$SSHD_CONFIG"

@@ -1437,6 +1437,43 @@ class PanelHandler(http.server.BaseHTTPRequestHandler):
         except Exception as e:
             self._send_json({"logs": str(e), "service": service})
 
+def _ensure_xray_client_emails():
+    """Patch existing xray clients to add email fields for per-user stats tracking."""
+    config_path = "/usr/local/etc/xray/config.json"
+    users_file = "/usr/local/etc/xray/users.json"
+    if not os.path.exists(config_path) or not os.path.exists(users_file):
+        return
+    try:
+        with open(users_file) as f:
+            users = json.load(f)
+        with open(config_path) as f:
+            cfg = json.load(f)
+
+        # Build uuid->username map
+        uuid_to_user = {uuid: name for name, uuid in users.items()}
+        changed = False
+
+        for inb in cfg.get("inbounds", []):
+            if inb.get("protocol") not in ("vless", "vmess"):
+                continue
+            for client in inb.get("settings", {}).get("clients", []):
+                if not client.get("email"):
+                    cid = client.get("id", "")
+                    username = uuid_to_user.get(cid, cid[:8])
+                    client["email"] = f"{username}@proxy"
+                    changed = True
+
+        if changed:
+            with open(config_path, "w") as f:
+                json.dump(cfg, f, indent=2)
+            subprocess.run(
+                ["systemctl", "restart", "xray"],
+                capture_output=True, timeout=15
+            )
+            log("Patched xray clients with email fields for stats tracking")
+    except Exception as e:
+        log(f"Error patching xray client emails: {e}", "ERROR")
+
 # ─── Threaded HTTPS Server ────────────────────────────────────────────────────
 
 class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
@@ -1469,6 +1506,10 @@ def main():
 
     # Ensure data directory exists
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Patch existing xray clients to add email fields for stats tracking
+    if _config.user_management == "v2ray":
+        _ensure_xray_client_emails()
 
     # Start bandwidth collector
     collector = BandwidthCollector(_bandwidth)

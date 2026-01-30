@@ -295,8 +295,6 @@ Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-ProtectSystem=full
-PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
