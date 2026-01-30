@@ -695,7 +695,7 @@ class BandwidthMonitor:
                     return json.load(f)
             except Exception:
                 pass
-        return {"users": {}, "last_update": 0}
+        return {"users": {}, "daily": {}, "last_update": 0, "last_reset_day": ""}
 
     def _save_data(self):
         DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -747,14 +747,27 @@ class BandwidthMonitor:
         return result
 
     def get_user_bandwidth(self):
-        """Get per-user bandwidth."""
+        """Get per-user bandwidth with daily breakdown."""
         if self.config.user_management == "v2ray":
-            return self._get_xray_user_bandwidth()
+            raw = self._get_xray_user_bandwidth()
         else:
-            return self._get_ssh_user_bandwidth()
+            raw = self._get_ssh_user_bandwidth()
+
+        # Add daily breakdown from stored data
+        today = datetime.now().strftime("%Y-%m-%d")
+        daily = self._data.get("daily", {})
+
+        for username, data in raw.items():
+            user_daily = daily.get(username, {})
+            today_data = user_daily.get(today, {"uplink": 0, "downlink": 0})
+            data["today_uplink"] = today_data.get("uplink", 0)
+            data["today_downlink"] = today_data.get("downlink", 0)
+            data["today_total"] = data["today_uplink"] + data["today_downlink"]
+
+        return raw
 
     def _get_xray_user_bandwidth(self):
-        """Get V2Ray per-user bandwidth from Xray Stats API."""
+        """Get V2Ray per-user bandwidth from accumulated data."""
         users = {}
         users_file = "/usr/local/etc/xray/users.json"
         if not os.path.exists(users_file):
@@ -764,49 +777,11 @@ class BandwidthMonitor:
             with open(users_file) as f:
                 user_data = json.load(f)
 
-            stats_port = self.config.xray_stats_port
             for username in user_data:
-                email = f"{username}@proxy"
-                uplink = 0
-                downlink = 0
-
-                # Query uplink
-                try:
-                    result = subprocess.run(
-                        ["xray", "api", "statsquery",
-                         f"--server=127.0.0.1:{stats_port}",
-                         f"-pattern=user>>>{email}>>>traffic>>>uplink"],
-                        capture_output=True, text=True, timeout=10
-                    )
-                    if result.returncode == 0:
-                        match = re.search(r'"value":\s*"?(\d+)"?', result.stdout)
-                        if match:
-                            uplink = int(match.group(1))
-                except Exception:
-                    pass
-
-                # Query downlink
-                try:
-                    result = subprocess.run(
-                        ["xray", "api", "statsquery",
-                         f"--server=127.0.0.1:{stats_port}",
-                         f"-pattern=user>>>{email}>>>traffic>>>downlink"],
-                        capture_output=True, text=True, timeout=10
-                    )
-                    if result.returncode == 0:
-                        match = re.search(r'"value":\s*"?(\d+)"?', result.stdout)
-                        if match:
-                            downlink = int(match.group(1))
-                except Exception:
-                    pass
-
-                # Add persistent data
                 persistent = self._data.get("users", {}).get(username, {})
                 users[username] = {
-                    "uplink": uplink + persistent.get("uplink_acc", 0),
-                    "downlink": downlink + persistent.get("downlink_acc", 0),
-                    "uplink_session": uplink,
-                    "downlink_session": downlink,
+                    "uplink": persistent.get("uplink_acc", 0),
+                    "downlink": persistent.get("downlink_acc", 0),
                 }
         except Exception as e:
             log(f"Error getting xray user bandwidth: {e}", "ERROR")
@@ -826,17 +801,25 @@ class BandwidthMonitor:
             downlink = 0
 
             try:
-                # Check iptables chain
+                # Check iptables OUTPUT chain (upload: from user to internet)
                 result = subprocess.run(
                     ["iptables", "-L", f"PROXY_USER_{username}", "-v", "-n", "-x"],
                     capture_output=True, text=True, timeout=5
                 )
                 if result.returncode == 0:
-                    for line in result.stdout.splitlines()[2:]:
+                    lines = result.stdout.splitlines()[2:]
+                    for i, line in enumerate(lines):
                         parts = line.split()
                         if len(parts) >= 2:
                             bytes_count = int(parts[1])
-                            uplink += bytes_count
+                            # First rule = upload (OUTPUT), second = download (INPUT)
+                            if i == 0:
+                                uplink = bytes_count
+                            elif i == 1:
+                                downlink = bytes_count
+                            else:
+                                # If more rules, add to download
+                                downlink += bytes_count
             except Exception:
                 pass
 
@@ -849,23 +832,157 @@ class BandwidthMonitor:
         return users
 
     def persist_stats(self):
-        """Persist current stats to survive restarts."""
+        """Persist current stats to survive restarts and track daily usage."""
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        # Reset daily counters if new day
+        last_day = self._data.get("last_reset_day", "")
+        if today != last_day:
+            self._data["last_reset_day"] = today
+
+        # Get raw session stats (without accumulated)
         if self.config.user_management == "v2ray":
-            users_file = "/usr/local/etc/xray/users.json"
-            if os.path.exists(users_file):
+            raw_stats = self._get_raw_xray_stats()
+        else:
+            raw_stats = self._get_raw_ssh_stats()
+
+        if "daily" not in self._data:
+            self._data["daily"] = {}
+
+        # Track previous session values to compute deltas
+        prev_session = self._data.get("prev_session", {})
+
+        for username, stats in raw_stats.items():
+            up = stats.get("uplink", 0)
+            down = stats.get("downlink", 0)
+
+            # Compute delta from last collection
+            prev = prev_session.get(username, {"uplink": 0, "downlink": 0})
+            delta_up = max(0, up - prev.get("uplink", 0))
+            delta_down = max(0, down - prev.get("downlink", 0))
+
+            # If session counter reset (e.g. service restart), use full value
+            if up < prev.get("uplink", 0):
+                delta_up = up
+            if down < prev.get("downlink", 0):
+                delta_down = down
+
+            # Update accumulated totals
+            if username not in self._data["users"]:
+                self._data["users"][username] = {"uplink_acc": 0, "downlink_acc": 0}
+            self._data["users"][username]["uplink_acc"] += delta_up
+            self._data["users"][username]["downlink_acc"] += delta_down
+
+            # Update daily totals
+            if username not in self._data["daily"]:
+                self._data["daily"][username] = {}
+            if today not in self._data["daily"][username]:
+                self._data["daily"][username][today] = {"uplink": 0, "downlink": 0}
+            self._data["daily"][username][today]["uplink"] += delta_up
+            self._data["daily"][username][today]["downlink"] += delta_down
+
+            # Clean old daily data (keep 30 days)
+            user_days = self._data["daily"][username]
+            cutoff = (datetime.now().timestamp() - 30 * 86400)
+            for day_key in list(user_days.keys()):
                 try:
-                    with open(users_file) as f:
-                        user_data = json.load(f)
-                    for username in user_data:
-                        bw = self._get_xray_user_bandwidth().get(username, {})
-                        if username not in self._data["users"]:
-                            self._data["users"][username] = {}
-                        self._data["users"][username]["uplink_acc"] = bw.get("uplink", 0)
-                        self._data["users"][username]["downlink_acc"] = bw.get("downlink", 0)
-                except Exception:
+                    day_ts = datetime.strptime(day_key, "%Y-%m-%d").timestamp()
+                    if day_ts < cutoff:
+                        del user_days[day_key]
+                except ValueError:
                     pass
+
+        # Store current session values for next delta calculation
+        self._data["prev_session"] = raw_stats
         self._data["last_update"] = time.time()
         self._save_data()
+
+    def _get_raw_xray_stats(self):
+        """Get raw Xray session stats (without accumulated data)."""
+        users = {}
+        users_file = "/usr/local/etc/xray/users.json"
+        if not os.path.exists(users_file):
+            return users
+
+        try:
+            with open(users_file) as f:
+                user_data = json.load(f)
+
+            stats_port = self.config.xray_stats_port
+            for username in user_data:
+                email = f"{username}@proxy"
+                uplink = 0
+                downlink = 0
+
+                try:
+                    result = subprocess.run(
+                        ["xray", "api", "statsquery",
+                         f"--server=127.0.0.1:{stats_port}",
+                         f"-pattern=user>>>{email}>>>traffic>>>uplink"],
+                        capture_output=True, text=True, timeout=10
+                    )
+                    if result.returncode == 0:
+                        match = re.search(r'"value":\s*"?(\d+)"?', result.stdout)
+                        if match:
+                            uplink = int(match.group(1))
+                except Exception:
+                    pass
+
+                try:
+                    result = subprocess.run(
+                        ["xray", "api", "statsquery",
+                         f"--server=127.0.0.1:{stats_port}",
+                         f"-pattern=user>>>{email}>>>traffic>>>downlink"],
+                        capture_output=True, text=True, timeout=10
+                    )
+                    if result.returncode == 0:
+                        match = re.search(r'"value":\s*"?(\d+)"?', result.stdout)
+                        if match:
+                            downlink = int(match.group(1))
+                except Exception:
+                    pass
+
+                users[username] = {"uplink": uplink, "downlink": downlink}
+        except Exception as e:
+            log(f"Error getting raw xray stats: {e}", "ERROR")
+
+        return users
+
+    def _get_raw_ssh_stats(self):
+        """Get raw SSH session stats from iptables (without accumulated data)."""
+        users = {}
+        proxy_dir = Path("/root/proxy-users")
+        if not proxy_dir.exists():
+            return users
+
+        for f in proxy_dir.glob("*.txt"):
+            username = f.stem
+            uplink = 0
+            downlink = 0
+
+            try:
+                result = subprocess.run(
+                    ["iptables", "-L", f"PROXY_USER_{username}", "-v", "-n", "-x"],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    lines = result.stdout.splitlines()[2:]
+                    for i, line in enumerate(lines):
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            bytes_count = int(parts[1])
+                            if i == 0:
+                                uplink = bytes_count
+                            elif i == 1:
+                                downlink = bytes_count
+                            else:
+                                downlink += bytes_count
+            except Exception:
+                pass
+
+            users[username] = {"uplink": uplink, "downlink": downlink}
+
+        return users
 
     def get_connections(self):
         """Get active connections."""

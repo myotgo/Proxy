@@ -103,6 +103,11 @@ if [[ "$LAYER" == layer7-* ]]; then
         chmod +x "$PANEL_DIR/scripts/add-user.sh"
         log_msg "Copied V2Ray add-user.sh from $LAYER"
     fi
+    if [ -f "$LAYER_DIR/delete-user.sh" ]; then
+        cp "$LAYER_DIR/delete-user.sh" "$PANEL_DIR/scripts/delete-user.sh"
+        chmod +x "$PANEL_DIR/scripts/delete-user.sh"
+        log_msg "Copied V2Ray delete-user.sh from $LAYER"
+    fi
 else
     # SSH layer - copy from common
     COMMON_DIR="$SCRIPT_DIR/../common"
