@@ -792,6 +792,210 @@ body {
     }
 }
 
+/* ─── Layer Cards & Switch Progress ─────────────────────────────────────── */
+
+.section-description {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+    line-height: 1.6;
+}
+
+.layer-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.layer-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.layer-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px rgba(91, 138, 245, 0.2);
+}
+
+.layer-card-active {
+    border-color: var(--success);
+    box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.2);
+}
+
+.layer-card-active:hover {
+    border-color: var(--success);
+}
+
+.layer-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    gap: 12px;
+}
+
+.layer-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.layer-card-title h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text);
+}
+
+.layer-card-desc {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.layer-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.layer-badge.active {
+    background: rgba(74, 222, 128, 0.15);
+    color: var(--success);
+}
+
+.layer-note {
+    display: block;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--warning);
+    font-style: italic;
+}
+
+/* Switch Progress */
+.switch-status {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+}
+
+.switch-status-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.switch-status-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text);
+}
+
+.progress-bar-lg {
+    height: 12px;
+    margin-bottom: 8px;
+}
+
+.progress-fill.success-fill {
+    background: var(--success);
+}
+
+.switch-progress-text {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+}
+
+.switch-log {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    font-size: 0.8rem;
+    font-family: 'Consolas', 'Monaco', monospace;
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+}
+
+.switch-done {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px;
+    background: rgba(74, 222, 128, 0.1);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    border-radius: var(--radius);
+    color: var(--success);
+    font-weight: 500;
+}
+
+.phase-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: rgba(91, 138, 245, 0.15);
+    color: var(--primary);
+}
+
+.phase-badge.phase-error {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+}
+
+.phase-badge.phase-done {
+    background: rgba(74, 222, 128, 0.15);
+    color: var(--success);
+}
+
+/* Switch Modal */
+.switch-warning {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    color: var(--warning);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.switch-warning svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.switch-target-info {
+    padding: 12px;
+    background: var(--bg-input);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
 /* ─── Responsive ────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
     .stats-grid {
@@ -838,5 +1042,14 @@ body {
     .modal {
         margin: 10px;
         padding: 20px;
+    }
+
+    .layer-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .switch-done {
+        flex-direction: column;
+        text-align: center;
     }
 }

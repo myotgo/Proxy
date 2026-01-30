@@ -91,6 +91,35 @@ const translations = {
         service_logs: "Service Logs",
         load_logs: "Load Logs",
         click_load_logs: "Click \"Load Logs\" to view service logs...",
+
+        // Settings / Layer Switching
+        nav_settings: "Settings",
+        settings_title: "Settings",
+        layer_switching: "Layer Switching",
+        layer_switching_desc: "Switch between proxy layers. This will uninstall the current layer and install the selected one.",
+        current_layer: "Current Layer",
+        activate: "Activate",
+        confirm_switch: "Confirm Layer Switch",
+        switch_warning_text: "This will uninstall the current proxy layer and install a new one. All existing users will be preserved but the service will be interrupted during the switch.",
+        current_layer_label: "Current:",
+        new_layer_label: "New:",
+        domain_label: "Domain (FQDN)",
+        email_label: "Email (for Let's Encrypt)",
+        duckdns_token_label: "DuckDNS Token (optional)",
+        domain_hint: "Your domain must point to this server's IP",
+        duckdns_hint: "Only needed for .duckdns.org domains",
+        activate_layer: "Activate Layer",
+        switching_layer: "Switching Layer...",
+        switch_complete: "Layer switch complete!",
+        reload_dashboard: "Reload Dashboard",
+        switch_phase_uninstalling: "Uninstalling",
+        switch_phase_installing: "Installing",
+        switch_phase_reinstalling_panel: "Reinstalling panel",
+        switch_phase_finalizing: "Finalizing",
+        switch_phase_done: "Complete",
+        switch_phase_error: "Error",
+        switch_phase_starting: "Starting",
+        layer_needs_domain: "Requires domain + email",
     },
     fa: {
         nav_overview: "\u0646\u0645\u0627\u06cc \u06a9\u0644\u06cc",
@@ -174,6 +203,35 @@ const translations = {
         service_logs: "\u0644\u0627\u06af\u200c\u0647\u0627\u06cc \u0633\u0631\u0648\u06cc\u0633",
         load_logs: "\u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc \u0644\u0627\u06af",
         click_load_logs: "\u0628\u0631\u0627\u06cc \u0645\u0634\u0627\u0647\u062f\u0647 \u0644\u0627\u06af\u200c\u0647\u0627 \u0631\u0648\u06cc \"\u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc \u0644\u0627\u06af\" \u06a9\u0644\u06cc\u06a9 \u06a9\u0646\u06cc\u062f...",
+
+        // Settings / Layer Switching
+        nav_settings: "\u062a\u0646\u0638\u06cc\u0645\u0627\u062a",
+        settings_title: "\u062a\u0646\u0638\u06cc\u0645\u0627\u062a",
+        layer_switching: "\u062a\u063a\u06cc\u06cc\u0631 \u0644\u0627\u06cc\u0647",
+        layer_switching_desc: "\u0628\u06cc\u0646 \u0644\u0627\u06cc\u0647\u200c\u0647\u0627\u06cc \u067e\u0631\u0648\u06a9\u0633\u06cc \u062c\u0627\u0628\u062c\u0627 \u0634\u0648\u06cc\u062f. \u0627\u06cc\u0646 \u06a9\u0627\u0631 \u0644\u0627\u06cc\u0647 \u0641\u0639\u0644\u06cc \u0631\u0627 \u062d\u0630\u0641 \u0648 \u0644\u0627\u06cc\u0647 \u062c\u062f\u06cc\u062f \u0631\u0627 \u0646\u0635\u0628 \u0645\u06cc\u200c\u06a9\u0646\u062f.",
+        current_layer: "\u0644\u0627\u06cc\u0647 \u0641\u0639\u0644\u06cc",
+        activate: "\u0641\u0639\u0627\u0644\u200c\u0633\u0627\u0632\u06cc",
+        confirm_switch: "\u062a\u0627\u06cc\u06cc\u062f \u062a\u063a\u06cc\u06cc\u0631 \u0644\u0627\u06cc\u0647",
+        switch_warning_text: "\u0627\u06cc\u0646 \u06a9\u0627\u0631 \u0644\u0627\u06cc\u0647 \u0641\u0639\u0644\u06cc \u0631\u0627 \u062d\u0630\u0641 \u0648 \u0644\u0627\u06cc\u0647 \u062c\u062f\u06cc\u062f \u0631\u0627 \u0646\u0635\u0628 \u0645\u06cc\u200c\u06a9\u0646\u062f. \u06a9\u0627\u0631\u0628\u0631\u0627\u0646 \u062d\u0641\u0638 \u0645\u06cc\u200c\u0634\u0648\u0646\u062f \u0627\u0645\u0627 \u0633\u0631\u0648\u06cc\u0633 \u0645\u0648\u0642\u062a\u0627 \u0642\u0637\u0639 \u0645\u06cc\u200c\u0634\u0648\u062f.",
+        current_layer_label: "\u0641\u0639\u0644\u06cc:",
+        new_layer_label: "\u062c\u062f\u06cc\u062f:",
+        domain_label: "\u062f\u0627\u0645\u0646\u0647 (FQDN)",
+        email_label: "\u0627\u06cc\u0645\u06cc\u0644 (Let's Encrypt)",
+        duckdns_token_label: "\u062a\u0648\u06a9\u0646 DuckDNS (\u0627\u062e\u062a\u06cc\u0627\u0631\u06cc)",
+        domain_hint: "\u062f\u0627\u0645\u0646\u0647 \u0628\u0627\u06cc\u062f \u0628\u0647 \u0622\u06cc\u067e\u06cc \u0627\u06cc\u0646 \u0633\u0631\u0648\u0631 \u0627\u0634\u0627\u0631\u0647 \u06a9\u0646\u062f",
+        duckdns_hint: "\u0641\u0642\u0637 \u0628\u0631\u0627\u06cc \u062f\u0627\u0645\u0646\u0647\u200c\u0647\u0627\u06cc .duckdns.org",
+        activate_layer: "\u0641\u0639\u0627\u0644\u200c\u0633\u0627\u0632\u06cc \u0644\u0627\u06cc\u0647",
+        switching_layer: "\u062f\u0631 \u062d\u0627\u0644 \u062a\u063a\u06cc\u06cc\u0631 \u0644\u0627\u06cc\u0647...",
+        switch_complete: "\u062a\u063a\u06cc\u06cc\u0631 \u0644\u0627\u06cc\u0647 \u06a9\u0627\u0645\u0644 \u0634\u062f!",
+        reload_dashboard: "\u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc \u0645\u062c\u062f\u062f \u062f\u0627\u0634\u0628\u0648\u0631\u062f",
+        switch_phase_uninstalling: "\u062d\u0630\u0641 \u0644\u0627\u06cc\u0647 \u0641\u0639\u0644\u06cc",
+        switch_phase_installing: "\u0646\u0635\u0628 \u0644\u0627\u06cc\u0647 \u062c\u062f\u06cc\u062f",
+        switch_phase_reinstalling_panel: "\u0646\u0635\u0628 \u0645\u062c\u062f\u062f \u067e\u0646\u0644",
+        switch_phase_finalizing: "\u0646\u0647\u0627\u06cc\u06cc\u200c\u0633\u0627\u0632\u06cc",
+        switch_phase_done: "\u06a9\u0627\u0645\u0644 \u0634\u062f",
+        switch_phase_error: "\u062e\u0637\u0627",
+        switch_phase_starting: "\u0634\u0631\u0648\u0639",
+        layer_needs_domain: "\u0646\u06cc\u0627\u0632 \u0628\u0647 \u062f\u0627\u0645\u0646\u0647 + \u0627\u06cc\u0645\u06cc\u0644",
     }
 };
 
@@ -182,6 +240,9 @@ let currentLayerIsV2Ray = false;
 let pendingDeleteUser = null;
 let currentBandwidthPeriod = "today";
 let bandwidthData = null;
+let layersData = null;
+let switchPollInterval = null;
+let pendingSwitchLayer = null;
 
 /* ─── Language ──────────────────────────────────────────────────────────── */
 
@@ -230,6 +291,7 @@ function showSection(name, navEl) {
     else if (name === "users") loadUsers();
     else if (name === "bandwidth") loadBandwidth();
     else if (name === "connections") loadConnections();
+    else if (name === "settings") loadLayers();
 }
 
 /* ─── API Helper ────────────────────────────────────────────────────────── */
@@ -678,6 +740,214 @@ async function loadLogs() {
         viewer.scrollTop = viewer.scrollHeight;
     } catch (err) {
         viewer.textContent = "Failed to load logs";
+    }
+}
+
+/* ─── Layer Switching ───────────────────────────────────────────────────── */
+
+async function loadLayers() {
+    try {
+        const resp = await api("/api/layers");
+        if (!resp) return;
+        layersData = await resp.json();
+        renderLayerCards(layersData);
+        checkSwitchStatus();
+    } catch (err) {
+        console.error("Failed to load layers:", err);
+    }
+}
+
+function renderLayerCards(data) {
+    const container = document.getElementById("layerCards");
+    const current = data.current;
+
+    container.innerHTML = data.layers.map(layer => {
+        const isActive = layer.id === current;
+        const activeClass = isActive ? "layer-card-active" : "";
+        const badgeHtml = isActive
+            ? `<span class="layer-badge active">${t("current_layer")}</span>`
+            : "";
+        const domainNote = layer.needs_domain
+            ? `<span class="layer-note">${t("layer_needs_domain")}</span>`
+            : "";
+        const btnHtml = isActive
+            ? ""
+            : `<button class="btn btn-sm btn-primary" onclick="showSwitchModal('${layer.id}')">${t("activate")}</button>`;
+
+        return `
+            <div class="layer-card ${activeClass}" data-layer="${layer.id}">
+                <div class="layer-card-header">
+                    <div class="layer-card-title">
+                        <h3>${escapeHtml(layer.name)}</h3>
+                        ${badgeHtml}
+                    </div>
+                    ${btnHtml}
+                </div>
+                <p class="layer-card-desc">${escapeHtml(layer.description)}</p>
+                ${domainNote}
+            </div>
+        `;
+    }).join("");
+}
+
+function showSwitchModal(layerId) {
+    if (!layersData) return;
+    const layer = layersData.layers.find(l => l.id === layerId);
+    if (!layer) return;
+
+    pendingSwitchLayer = layer;
+
+    document.getElementById("switchCurrentLayer").textContent = layersData.current;
+    document.getElementById("switchTargetLayer").textContent = layer.name;
+    document.getElementById("switchModalError").style.display = "none";
+
+    const domainFields = document.getElementById("switchDomainFields");
+    const duckdnsField = document.getElementById("switchDuckdnsField");
+
+    if (layer.needs_domain) {
+        domainFields.style.display = "block";
+        document.getElementById("switchDomain").value = "";
+        document.getElementById("switchEmail").value = "";
+        document.getElementById("switchDuckdns").value = "";
+        duckdnsField.style.display = layer.needs_duckdns ? "block" : "none";
+    } else {
+        domainFields.style.display = "none";
+    }
+
+    document.getElementById("switchConfirmBtn").disabled = false;
+    document.getElementById("switchConfirmBtn").querySelector("span").textContent = t("activate_layer");
+    document.getElementById("switchModal").style.display = "flex";
+}
+
+async function confirmLayerSwitch() {
+    if (!pendingSwitchLayer) return;
+
+    const btn = document.getElementById("switchConfirmBtn");
+    const errorDiv = document.getElementById("switchModalError");
+    errorDiv.style.display = "none";
+
+    const body = { layer_id: pendingSwitchLayer.id };
+
+    if (pendingSwitchLayer.needs_domain) {
+        body.domain = document.getElementById("switchDomain").value.trim();
+        body.email = document.getElementById("switchEmail").value.trim();
+        body.duckdns_token = document.getElementById("switchDuckdns").value.trim();
+
+        if (!body.domain || !body.email) {
+            errorDiv.textContent = t("switch_error_domain_required") || "Domain and email are required";
+            errorDiv.style.display = "block";
+            return;
+        }
+    }
+
+    btn.disabled = true;
+    btn.querySelector("span").textContent = t("switching_layer");
+
+    try {
+        const resp = await api("/api/layer/switch", {
+            method: "POST",
+            body: JSON.stringify(body)
+        });
+
+        const data = await resp.json();
+        if (data.success) {
+            closeModal("switchModal");
+            showSwitchProgress();
+            startSwitchPolling();
+        } else {
+            errorDiv.textContent = data.error || "Failed to start switch";
+            errorDiv.style.display = "block";
+            btn.disabled = false;
+            btn.querySelector("span").textContent = t("activate_layer");
+        }
+    } catch (err) {
+        errorDiv.textContent = "Network error";
+        errorDiv.style.display = "block";
+        btn.disabled = false;
+        btn.querySelector("span").textContent = t("activate_layer");
+    }
+}
+
+function showSwitchProgress() {
+    document.getElementById("layerCards").style.display = "none";
+    const status = document.getElementById("layerSwitchStatus");
+    status.style.display = "block";
+    document.getElementById("switchProgressBar").style.width = "0%";
+    document.getElementById("switchProgressText").textContent = "0%";
+    document.getElementById("switchLog").textContent = "";
+    document.getElementById("switchError").style.display = "none";
+    document.getElementById("switchDone").style.display = "none";
+    document.getElementById("switchProgressBar").className = "progress-fill";
+}
+
+function startSwitchPolling() {
+    if (switchPollInterval) clearInterval(switchPollInterval);
+    switchPollInterval = setInterval(pollSwitchStatus, 2000);
+}
+
+async function pollSwitchStatus() {
+    try {
+        const resp = await api("/api/layer/switch/status");
+        if (!resp) return;
+        const data = await resp.json();
+        updateSwitchUI(data);
+
+        if (!data.in_progress && (data.phase === "done" || data.phase === "error")) {
+            clearInterval(switchPollInterval);
+            switchPollInterval = null;
+        }
+    } catch (err) {
+        // Server may be restarting during panel reinstall - keep polling
+        console.warn("Switch status poll failed (server may be restarting):", err);
+    }
+}
+
+async function checkSwitchStatus() {
+    try {
+        const resp = await api("/api/layer/switch/status");
+        if (!resp) return;
+        const data = await resp.json();
+        if (data.in_progress || data.phase === "done" || data.phase === "error") {
+            showSwitchProgress();
+            updateSwitchUI(data);
+            if (data.in_progress) {
+                startSwitchPolling();
+            }
+        }
+    } catch (err) {
+        // ignore
+    }
+}
+
+function updateSwitchUI(data) {
+    const bar = document.getElementById("switchProgressBar");
+    const text = document.getElementById("switchProgressText");
+    const logEl = document.getElementById("switchLog");
+    const badge = document.getElementById("switchPhaseBadge");
+    const errorDiv = document.getElementById("switchError");
+    const doneDiv = document.getElementById("switchDone");
+
+    bar.style.width = data.progress_pct + "%";
+    text.textContent = data.progress_pct + "%";
+
+    const phaseKey = "switch_phase_" + data.phase;
+    badge.textContent = t(phaseKey) || data.phase;
+    badge.className = "phase-badge phase-" + data.phase;
+
+    if (data.log_lines && data.log_lines.length > 0) {
+        logEl.textContent = data.log_lines.join("\n");
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    if (data.phase === "error") {
+        errorDiv.textContent = data.error || "Unknown error";
+        errorDiv.style.display = "block";
+        document.getElementById("layerCards").style.display = "";
+    }
+
+    if (data.phase === "done") {
+        doneDiv.style.display = "flex";
+        bar.className = "progress-fill success-fill";
     }
 }
 

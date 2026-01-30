@@ -36,6 +36,58 @@ STATIC_DIR = PANEL_DIR / "static"
 LOG_FILE = "/var/log/proxy-panel.log"
 GITHUB_RAW_BASE = "https://raw.githubusercontent.com/myotgo/Proxy/main"
 
+LAYER_DEFINITIONS = [
+    {
+        "id": "layer3-basic",
+        "name": "Basic SSH SOCKS",
+        "description": "Simple SSH proxy on port 22",
+        "needs_domain": False,
+        "needs_duckdns": False,
+    },
+    {
+        "id": "layer4-nginx",
+        "name": "Nginx TCP Proxy",
+        "description": "Nginx stream proxy on port 443",
+        "needs_domain": False,
+        "needs_duckdns": False,
+    },
+    {
+        "id": "layer6-stunnel",
+        "name": "Stunnel TLS Wrapper",
+        "description": "SSH over TLS using Stunnel on port 443",
+        "needs_domain": False,
+        "needs_duckdns": False,
+    },
+    {
+        "id": "layer7-v2ray-vless",
+        "name": "V2Ray VLESS (WebSocket)",
+        "description": "VLESS protocol with WebSocket transport and self-signed TLS",
+        "needs_domain": False,
+        "needs_duckdns": False,
+    },
+    {
+        "id": "layer7-v2ray-vmess",
+        "name": "V2Ray VMess (TCP)",
+        "description": "VMess protocol with TCP transport",
+        "needs_domain": False,
+        "needs_duckdns": False,
+    },
+    {
+        "id": "layer7-real-domain",
+        "name": "V2Ray Real Domain (gRPC)",
+        "description": "VLESS + gRPC with real TLS certificate (Let's Encrypt)",
+        "needs_domain": True,
+        "needs_duckdns": False,
+    },
+    {
+        "id": "layer7-iran-optimized",
+        "name": "V2Ray Iran Optimized (gRPC)",
+        "description": "VLESS + gRPC tuned for Iranian ISP DPI/throttling",
+        "needs_domain": True,
+        "needs_duckdns": True,
+    },
+]
+
 # ─── Logging ──────────────────────────────────────────────────────────────────
 
 def log(message, level="INFO"):
@@ -656,6 +708,137 @@ class LayerManager:
             log(f"Failed to download script: {e}", "ERROR")
         return None
 
+    def switch_layer(self, target_layer_id, domain="", email="", duckdns_token=""):
+        """Start a layer switch in a background thread."""
+        global _switch_state
+
+        with _switch_lock:
+            if _switch_state["in_progress"]:
+                return {"success": False, "error": "Switch already in progress"}
+            _switch_state = {
+                "in_progress": True,
+                "phase": "starting",
+                "target_layer": target_layer_id,
+                "progress_pct": 0,
+                "log_lines": [],
+                "error": "",
+            }
+
+        thread = threading.Thread(
+            target=self._do_switch,
+            args=(target_layer_id, domain, email, duckdns_token),
+            daemon=True
+        )
+        thread.start()
+        return {"success": True, "message": "Layer switch started"}
+
+    def _do_switch(self, target_layer_id, domain, email, duckdns_token):
+        """Background worker: uninstall current layer, install new one, reinstall panel."""
+        global _switch_state, _config
+
+        def update(phase, pct, line=""):
+            _switch_state["phase"] = phase
+            _switch_state["progress_pct"] = pct
+            if line:
+                _switch_state["log_lines"].append(line)
+                log(f"[switch] {line}")
+
+        env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
+
+        try:
+            # Phase 1: Uninstall current layer
+            update("uninstalling", 5, "Downloading uninstall script...")
+            uninstall_url = f"{GITHUB_RAW_BASE}/common/uninstall.sh"
+            result = subprocess.run(
+                ["bash", "-c", f"curl -fsSL '{uninstall_url}' | bash"],
+                capture_output=True, text=True, timeout=300, env=env
+            )
+            if result.returncode != 0:
+                raise RuntimeError(f"Uninstall failed: {result.stderr[-500:]}")
+            update("uninstalling", 20, "Uninstall complete")
+
+            # Phase 2: Install target layer
+            update("installing", 25, f"Downloading {target_layer_id} install script...")
+            install_url = f"{GITHUB_RAW_BASE}/{target_layer_id}/install.sh"
+
+            layer_def = next((l for l in LAYER_DEFINITIONS if l["id"] == target_layer_id), None)
+            needs_domain = layer_def and layer_def["needs_domain"]
+
+            if needs_domain:
+                stdin_lines = f"{domain}\n{email}\n"
+                if duckdns_token:
+                    stdin_lines += f"{duckdns_token}\n"
+                else:
+                    stdin_lines += "\n"
+                update("installing", 30, f"Installing {target_layer_id} (domain: {domain})...")
+                result = subprocess.run(
+                    ["bash", "-c", f"curl -fsSL '{install_url}' | bash"],
+                    input=stdin_lines,
+                    capture_output=True, text=True, timeout=600, env=env
+                )
+            else:
+                update("installing", 30, f"Installing {target_layer_id}...")
+                result = subprocess.run(
+                    ["bash", "-c", f"curl -fsSL '{install_url}' | bash"],
+                    capture_output=True, text=True, timeout=600, env=env
+                )
+
+            if result.returncode != 0:
+                raise RuntimeError(f"Install failed: {result.stderr[-500:]}")
+            update("installing", 80, "Layer installation complete")
+
+            # Persist state before panel reinstall (survives process restart)
+            state_file = DATA_DIR / "switch_state.json"
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            with open(state_file, "w") as f:
+                json.dump({"target_layer": target_layer_id, "phase": "reinstalling_panel"}, f)
+
+            # Phase 3: Reinstall panel with new layer flag
+            update("reinstalling_panel", 85, "Reinstalling panel with new layer...")
+            panel_url = f"{GITHUB_RAW_BASE}/panel/install-panel.sh"
+            result = subprocess.run(
+                ["bash", "-c", f"curl -fsSL '{panel_url}' | bash -s -- --layer={target_layer_id}"],
+                capture_output=True, text=True, timeout=300, env=env
+            )
+            if result.returncode != 0:
+                update("reinstalling_panel", 90,
+                       f"Panel reinstall warning: {result.stderr[-200:]}")
+
+            # Phase 4: Update in-memory state
+            update("finalizing", 95, "Updating configuration...")
+            _config = Config.load()
+            detected = self.detect_layer()
+            _config.layer = detected
+            self.layer = detected
+            if detected.startswith("layer7"):
+                _config.service_type = "xray"
+                _config.user_management = "v2ray"
+            else:
+                _config.service_type = "ssh"
+                _config.user_management = "ssh"
+            _config.save()
+
+            # Clean up state file
+            if state_file.exists():
+                os.unlink(str(state_file))
+
+            update("done", 100, f"Successfully switched to {target_layer_id}")
+            _switch_state["in_progress"] = False
+
+        except Exception as e:
+            _switch_state["phase"] = "error"
+            _switch_state["error"] = str(e)
+            _switch_state["in_progress"] = False
+            _switch_state["log_lines"].append(f"ERROR: {e}")
+            log(f"Layer switch failed: {e}", "ERROR")
+            # Clean up state file on error
+            state_file = DATA_DIR / "switch_state.json"
+            if state_file.exists():
+                try:
+                    os.unlink(str(state_file))
+                except Exception:
+                    pass
+
 # ─── System Information ───────────────────────────────────────────────────────
 
 class SystemInfo:
@@ -1159,6 +1342,17 @@ _sessions = None
 _layer_mgr = None
 _bandwidth = None
 
+# Layer switch state (tracked across background thread)
+_switch_state = {
+    "in_progress": False,
+    "phase": "",
+    "target_layer": "",
+    "progress_pct": 0,
+    "log_lines": [],
+    "error": "",
+}
+_switch_lock = threading.Lock()
+
 class PanelHandler(http.server.BaseHTTPRequestHandler):
     """Main HTTP request handler with routing."""
 
@@ -1297,6 +1491,8 @@ class PanelHandler(http.server.BaseHTTPRequestHandler):
             self._handle_add_user()
         elif path == "/api/service/restart":
             self._handle_service_restart()
+        elif path == "/api/layer/switch":
+            self._handle_layer_switch()
         else:
             self.send_error(404)
 
@@ -1354,6 +1550,25 @@ class PanelHandler(http.server.BaseHTTPRequestHandler):
 
         elif path == "/api/service/logs":
             self._handle_service_logs()
+
+        elif path == "/api/layers":
+            layers = []
+            for layer_def in LAYER_DEFINITIONS:
+                layers.append({
+                    **layer_def,
+                    "active": layer_def["id"] == _layer_mgr.layer,
+                })
+            self._send_json({"layers": layers, "current": _layer_mgr.layer})
+
+        elif path == "/api/layer/switch/status":
+            self._send_json({
+                "in_progress": _switch_state["in_progress"],
+                "phase": _switch_state["phase"],
+                "target_layer": _switch_state["target_layer"],
+                "progress_pct": _switch_state["progress_pct"],
+                "log_lines": _switch_state["log_lines"][-20:],
+                "error": _switch_state["error"],
+            })
 
         else:
             self.send_error(404)
@@ -1459,6 +1674,45 @@ class PanelHandler(http.server.BaseHTTPRequestHandler):
         except Exception as e:
             self._send_json({"success": False, "error": str(e)}, 500)
 
+    def _handle_layer_switch(self):
+        try:
+            body = json.loads(self._read_body())
+        except Exception:
+            self._send_json({"error": "Invalid request"}, 400)
+            return
+
+        target = body.get("layer_id", "").strip()
+        domain = body.get("domain", "").strip()
+        email = body.get("email", "").strip()
+        duckdns_token = body.get("duckdns_token", "").strip()
+
+        # Validate layer_id
+        valid_ids = [l["id"] for l in LAYER_DEFINITIONS]
+        if target not in valid_ids:
+            self._send_json({"error": "Invalid layer ID"}, 400)
+            return
+
+        if target == _layer_mgr.layer:
+            self._send_json({"error": "Already on this layer"}, 400)
+            return
+
+        # Validate domain/email for layers that need it
+        layer_def = next(l for l in LAYER_DEFINITIONS if l["id"] == target)
+        if layer_def["needs_domain"]:
+            if not domain or not email:
+                self._send_json({"error": "Domain and email are required for this layer"}, 400)
+                return
+            if not re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$', domain):
+                self._send_json({"error": "Invalid domain format"}, 400)
+                return
+            if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
+                self._send_json({"error": "Invalid email format"}, 400)
+                return
+
+        result = _layer_mgr.switch_layer(target, domain, email, duckdns_token)
+        status = 200 if result.get("success") else 400
+        self._send_json(result, status)
+
     def _handle_service_logs(self):
         service = _layer_mgr.get_service_name()
         try:
@@ -1542,6 +1796,22 @@ def main():
 
     # Ensure data directory exists
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Recover from a layer switch if panel was restarted during Phase 3
+    switch_state_file = DATA_DIR / "switch_state.json"
+    if switch_state_file.exists():
+        try:
+            with open(switch_state_file) as f:
+                saved_switch = json.load(f)
+            os.unlink(str(switch_state_file))
+            _switch_state["phase"] = "done"
+            _switch_state["progress_pct"] = 100
+            _switch_state["target_layer"] = saved_switch.get("target_layer", "")
+            _switch_state["log_lines"] = [f"Successfully switched to {saved_switch.get('target_layer', 'unknown')}"]
+            _switch_state["in_progress"] = False
+            log(f"Recovered from layer switch: {saved_switch.get('target_layer')}")
+        except Exception as e:
+            log(f"Error recovering switch state: {e}", "WARN")
 
     # Patch existing xray clients to add email fields for stats tracking
     if _config.user_management == "v2ray":

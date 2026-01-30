@@ -34,6 +34,10 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 <span data-i18n="nav_service">Service</span>
             </a>
+            <a href="#" class="nav-item" data-section="settings" onclick="showSection('settings', this)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+                <span data-i18n="nav_settings">Settings</span>
+            </a>
         </nav>
         <div class="sidebar-footer">
             <button class="nav-item" onclick="toggleLang()" id="langBtn">
@@ -233,6 +237,39 @@
             </div>
             <pre class="log-viewer" id="log-viewer" data-i18n="click_load_logs">Click "Load Logs" to view service logs...</pre>
         </section>
+
+        <!-- Settings Section -->
+        <section id="section-settings" class="section">
+            <h1 data-i18n="settings_title">Settings</h1>
+
+            <h2 data-i18n="layer_switching">Layer Switching</h2>
+            <p class="section-description" data-i18n="layer_switching_desc">
+                Switch between proxy layers. This will uninstall the current layer and install the selected one.
+            </p>
+
+            <div class="layer-cards" id="layerCards">
+                <!-- Populated by loadLayers() -->
+            </div>
+
+            <div id="layerSwitchStatus" class="switch-status" style="display:none">
+                <div class="switch-status-header">
+                    <h3 data-i18n="switching_layer">Switching Layer...</h3>
+                    <span id="switchPhaseBadge" class="phase-badge"></span>
+                </div>
+                <div class="progress-bar progress-bar-lg">
+                    <div class="progress-fill" id="switchProgressBar" style="width:0%"></div>
+                </div>
+                <div id="switchProgressText" class="switch-progress-text">0%</div>
+                <pre class="switch-log" id="switchLog"></pre>
+                <div id="switchError" class="error-message" style="display:none"></div>
+                <div id="switchDone" class="switch-done" style="display:none">
+                    <span data-i18n="switch_complete">Layer switch complete!</span>
+                    <button class="btn btn-primary" onclick="window.location.reload()">
+                        <span data-i18n="reload_dashboard">Reload Dashboard</span>
+                    </button>
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- Add User Modal -->
@@ -317,6 +354,56 @@
                 </button>
                 <button class="btn btn-danger" onclick="confirmDelete()" id="deleteBtn">
                     <span data-i18n="delete">Delete</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Layer Switch Confirmation Modal -->
+    <div class="modal-overlay" id="switchModal" style="display:none">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 data-i18n="confirm_switch">Confirm Layer Switch</h2>
+                <button class="modal-close" onclick="closeModal('switchModal')">&times;</button>
+            </div>
+            <div class="switch-warning">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <p data-i18n="switch_warning_text">
+                    This will uninstall the current proxy layer and install a new one.
+                    All existing users will be preserved but the service will be interrupted during the switch.
+                </p>
+            </div>
+            <div class="switch-target-info">
+                <div><strong data-i18n="current_layer_label">Current:</strong> <span id="switchCurrentLayer"></span></div>
+                <div><strong data-i18n="new_layer_label">New:</strong> <span id="switchTargetLayer"></span></div>
+            </div>
+            <!-- Domain fields (shown/hidden dynamically) -->
+            <div id="switchDomainFields" style="display:none">
+                <div class="form-group">
+                    <label for="switchDomain" data-i18n="domain_label">Domain (FQDN)</label>
+                    <input type="text" id="switchDomain" placeholder="example.com">
+                    <small data-i18n="domain_hint">Your domain must point to this server's IP</small>
+                </div>
+                <div class="form-group">
+                    <label for="switchEmail" data-i18n="email_label">Email (for Let's Encrypt)</label>
+                    <input type="email" id="switchEmail" placeholder="you@example.com">
+                </div>
+                <div id="switchDuckdnsField" style="display:none" class="form-group">
+                    <label for="switchDuckdns" data-i18n="duckdns_token_label">DuckDNS Token (optional)</label>
+                    <input type="text" id="switchDuckdns" placeholder="Optional">
+                    <small data-i18n="duckdns_hint">Only needed for .duckdns.org domains</small>
+                </div>
+            </div>
+            <div id="switchModalError" class="error-message" style="display:none"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('switchModal')">
+                    <span data-i18n="cancel">Cancel</span>
+                </button>
+                <button class="btn btn-warning" onclick="confirmLayerSwitch()" id="switchConfirmBtn">
+                    <span data-i18n="activate_layer">Activate Layer</span>
                 </button>
             </div>
         </div>
