@@ -121,7 +121,7 @@ The panel offers different methods for different layers. Currently, only the fir
 
 ![Different Methods](https://github.com/user-attachments/assets/33037acb-db2d-442b-b1e0-eef5177ed1d1)
 
-> **Alternative method:** You can also use the commands below to add or delete users (see Steps 4 through 6).
+### **Alternative method:** You can also use the commands below to add or delete users (see Steps 4 through 6).
 
 ---
 
