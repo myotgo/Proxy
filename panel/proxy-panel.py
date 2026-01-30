@@ -23,7 +23,7 @@ import ctypes
 import ctypes.util
 from urllib.parse import urlparse, parse_qs, unquote
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 
 # ─── Configuration ────────────────────────────────────────────────────────────
@@ -796,22 +796,59 @@ class BandwidthMonitor:
         return result
 
     def get_user_bandwidth(self):
-        """Get per-user bandwidth with daily breakdown."""
+        """Get per-user bandwidth with daily breakdown and period summaries."""
+        # Ensure fresh data by persisting if stale (> 60s since last persist)
+        last_update = self._data.get("last_update", 0)
+        if time.time() - last_update > 60:
+            try:
+                self.persist_stats()
+            except Exception as e:
+                log(f"Error persisting stats on demand: {e}", "ERROR")
+
         if self.config.user_management == "v2ray":
             raw = self._get_xray_user_bandwidth()
         else:
             raw = self._get_ssh_user_bandwidth()
 
-        # Add daily breakdown from stored data
         today = datetime.now().strftime("%Y-%m-%d")
         daily = self._data.get("daily", {})
+        now = datetime.now()
+        week_start = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+        month_start = (now - timedelta(days=30)).strftime("%Y-%m-%d")
 
         for username, data in raw.items():
             user_daily = daily.get(username, {})
+
+            # Today
             today_data = user_daily.get(today, {"uplink": 0, "downlink": 0})
             data["today_uplink"] = today_data.get("uplink", 0)
             data["today_downlink"] = today_data.get("downlink", 0)
             data["today_total"] = data["today_uplink"] + data["today_downlink"]
+
+            # This week (last 7 days)
+            week_up = 0
+            week_down = 0
+            for day_key, day_data in user_daily.items():
+                if day_key >= week_start:
+                    week_up += day_data.get("uplink", 0)
+                    week_down += day_data.get("downlink", 0)
+            data["week_uplink"] = week_up
+            data["week_downlink"] = week_down
+            data["week_total"] = week_up + week_down
+
+            # This month (last 30 days)
+            month_up = 0
+            month_down = 0
+            for day_key, day_data in user_daily.items():
+                if day_key >= month_start:
+                    month_up += day_data.get("uplink", 0)
+                    month_down += day_data.get("downlink", 0)
+            data["month_uplink"] = month_up
+            data["month_downlink"] = month_down
+            data["month_total"] = month_up + month_down
+
+            # Include daily breakdown for frontend charts
+            data["daily"] = user_daily
 
         return raw
 

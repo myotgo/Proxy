@@ -38,10 +38,12 @@ validate_password() {
     fi
 }
 
-# Backup configuration
+# Backup configuration (use /tmp/ to avoid read-only filesystem errors)
+BACKUP_FILE=""
 backup_config() {
-    cp "$SSHD_CONFIG" "$SSHD_CONFIG.backup-$(date +%s)"
-    log "Configuration backed up"
+    BACKUP_FILE="/tmp/sshd_config.backup-$(date +%s)"
+    cp "$SSHD_CONFIG" "$BACKUP_FILE"
+    log "Configuration backed up to $BACKUP_FILE"
 }
 
 # Main script
@@ -128,7 +130,7 @@ EOF
     # Validate SSH config
     if ! sshd -t; then
         log "ERROR: Invalid SSH configuration, restoring backup"
-        cp "$SSHD_CONFIG.backup-"* "$SSHD_CONFIG" 2>/dev/null || true
+        cp "$BACKUP_FILE" "$SSHD_CONFIG" 2>/dev/null || true
         echo "Error: SSH configuration validation failed, changes reverted"
         exit 1
     fi

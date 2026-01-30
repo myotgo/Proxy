@@ -591,6 +591,33 @@ body {
     min-height: 200px;
 }
 
+.period-selector {
+    display: flex;
+    gap: 4px;
+}
+
+.period-btn {
+    padding: 4px 12px;
+    border-radius: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.15s;
+}
+
+.period-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+}
+
+.period-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
 /* ─── Modals ────────────────────────────────────────────────────────────── */
 .modal-overlay {
     position: fixed;

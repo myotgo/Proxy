@@ -64,11 +64,14 @@ const translations = {
         system_bandwidth: "System Bandwidth",
         today: "Today",
         today_usage: "Today",
+        this_week: "This Week",
         this_month: "This Month",
         all_time: "All Time",
         per_user_bandwidth: "Per-User Bandwidth",
         upload: "Upload (Total)",
         download: "Download (Total)",
+        upload_label: "Upload",
+        download_label: "Download",
         total_label: "Total",
 
         // Connections
@@ -146,11 +149,14 @@ const translations = {
         system_bandwidth: "\u067e\u0647\u0646\u0627\u06cc \u0628\u0627\u0646\u062f \u0633\u06cc\u0633\u062a\u0645",
         today: "\u0627\u0645\u0631\u0648\u0632",
         today_usage: "\u0627\u0645\u0631\u0648\u0632",
+        this_week: "\u0627\u06cc\u0646 \u0647\u0641\u062a\u0647",
         this_month: "\u0627\u06cc\u0646 \u0645\u0627\u0647",
         all_time: "\u06a9\u0644",
         per_user_bandwidth: "\u067e\u0647\u0646\u0627\u06cc \u0628\u0627\u0646\u062f \u0647\u0631 \u06a9\u0627\u0631\u0628\u0631",
         upload: "\u0622\u067e\u0644\u0648\u062f (\u06a9\u0644)",
         download: "\u062f\u0627\u0646\u0644\u0648\u062f (\u06a9\u0644)",
+        upload_label: "\u0622\u067e\u0644\u0648\u062f",
+        download_label: "\u062f\u0627\u0646\u0644\u0648\u062f",
         total_label: "\u06a9\u0644",
 
         connections_title: "\u0627\u062a\u0635\u0627\u0644\u0627\u062a \u0641\u0639\u0627\u0644",
@@ -174,6 +180,8 @@ const translations = {
 let currentLang = localStorage.getItem("lang") || "en";
 let currentLayerIsV2Ray = false;
 let pendingDeleteUser = null;
+let currentBandwidthPeriod = "today";
+let bandwidthData = null;
 
 /* ─── Language ──────────────────────────────────────────────────────────── */
 
@@ -481,6 +489,47 @@ function formatBytes(bytes) {
     return val.toFixed(1) + " " + units[i];
 }
 
+function setBandwidthPeriod(period, btn) {
+    currentBandwidthPeriod = period;
+    document.querySelectorAll(".period-btn").forEach(b => b.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+    if (bandwidthData) {
+        renderUserBandwidth(bandwidthData);
+    }
+}
+
+function getPeriodData(data) {
+    const p = currentBandwidthPeriod;
+    if (p === "today") return { up: data.today_uplink || 0, down: data.today_downlink || 0 };
+    if (p === "week") return { up: data.week_uplink || 0, down: data.week_downlink || 0 };
+    if (p === "month") return { up: data.month_uplink || 0, down: data.month_downlink || 0 };
+    return { up: data.uplink || 0, down: data.downlink || 0 };
+}
+
+function renderUserBandwidth(users) {
+    const tbody = document.getElementById("bandwidth-tbody");
+    const chartContainer = document.getElementById("user-bandwidth-chart");
+    const entries = Object.entries(users);
+
+    if (entries.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">No data</td></tr>`;
+        chartContainer.innerHTML = `<p style="text-align:center;color:var(--text-dim)">No per-user data available</p>`;
+        return;
+    }
+
+    tbody.innerHTML = entries.map(([name, data]) => {
+        const { up, down } = getPeriodData(data);
+        return `<tr>
+            <td><strong>${escapeHtml(name)}</strong></td>
+            <td>${formatBytes(up)}</td>
+            <td>${formatBytes(down)}</td>
+            <td>${formatBytes(up + down)}</td>
+        </tr>`;
+    }).join("");
+
+    renderBandwidthChart(chartContainer, entries);
+}
+
 async function loadBandwidth() {
     try {
         const [sysResp, userResp] = await Promise.all([
@@ -500,33 +549,8 @@ async function loadBandwidth() {
         }
 
         if (userResp) {
-            const users = await userResp.json();
-            const tbody = document.getElementById("bandwidth-tbody");
-            const chartContainer = document.getElementById("user-bandwidth-chart");
-
-            const entries = Object.entries(users);
-
-            if (entries.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">No data</td></tr>`;
-                chartContainer.innerHTML = `<p style="text-align:center;color:var(--text-dim)">No per-user data available</p>`;
-                return;
-            }
-
-            tbody.innerHTML = entries.map(([name, data]) => {
-                const up = data.uplink || 0;
-                const down = data.downlink || 0;
-                const todayTotal = data.today_total || 0;
-                return `<tr>
-                    <td><strong>${escapeHtml(name)}</strong></td>
-                    <td>${formatBytes(todayTotal)}</td>
-                    <td>${formatBytes(up)}</td>
-                    <td>${formatBytes(down)}</td>
-                    <td>${formatBytes(up + down)}</td>
-                </tr>`;
-            }).join("");
-
-            // Simple SVG bar chart
-            renderBandwidthChart(chartContainer, entries);
+            bandwidthData = await userResp.json();
+            renderUserBandwidth(bandwidthData);
         }
     } catch (err) {
         console.error("Failed to load bandwidth:", err);
@@ -539,7 +563,10 @@ function renderBandwidthChart(container, entries) {
         return;
     }
 
-    const maxVal = Math.max(...entries.map(([, d]) => (d.uplink || 0) + (d.downlink || 0)), 1);
+    const maxVal = Math.max(...entries.map(([, d]) => {
+        const { up, down } = getPeriodData(d);
+        return up + down;
+    }), 1);
     const barHeight = 24;
     const rowHeight = 56;
     const gap = 8;
@@ -551,29 +578,28 @@ function renderBandwidthChart(container, entries) {
     // Legend
     let svg = `<svg width="100%" height="${svgHeight}" viewBox="0 0 ${chartWidth} ${svgHeight}">`;
     svg += `<rect x="${labelWidth}" y="4" width="10" height="10" rx="2" fill="#5b8af5"/>`;
-    svg += `<text x="${labelWidth + 16}" y="13" fill="#8b8fa3" font-size="11">${t("total_label")}</text>`;
-    svg += `<rect x="${labelWidth + 70}" y="4" width="10" height="10" rx="2" fill="#4ade80"/>`;
-    svg += `<text x="${labelWidth + 86}" y="13" fill="#8b8fa3" font-size="11">${t("today")}</text>`;
+    svg += `<text x="${labelWidth + 16}" y="13" fill="#8b8fa3" font-size="11">${t("upload_label")}</text>`;
+    svg += `<rect x="${labelWidth + 80}" y="4" width="10" height="10" rx="2" fill="#4ade80"/>`;
+    svg += `<text x="${labelWidth + 96}" y="13" fill="#8b8fa3" font-size="11">${t("download_label")}</text>`;
 
     entries.forEach(([name, data], i) => {
-        const total = (data.uplink || 0) + (data.downlink || 0);
-        const todayTotal = data.today_total || 0;
-        const barW = Math.max((total / maxVal) * barAreaWidth, 2);
-        const todayBarW = maxVal > 0 ? Math.max((todayTotal / maxVal) * barAreaWidth, todayTotal > 0 ? 2 : 0) : 0;
+        const { up, down } = getPeriodData(data);
+        const upBarW = Math.max((up / maxVal) * barAreaWidth, up > 0 ? 2 : 0);
+        const downBarW = Math.max((down / maxVal) * barAreaWidth, down > 0 ? 2 : 0);
         const y = i * (rowHeight + gap) + 28;
 
         // Label
         const displayName = name.length > 14 ? name.substring(0, 14) + "..." : name;
         svg += `<text x="${labelWidth - 8}" y="${y + 18}" fill="#8b8fa3" font-size="12" text-anchor="end">${escapeHtml(displayName)}</text>`;
 
-        // Total bar
-        svg += `<rect x="${labelWidth}" y="${y}" width="${barW}" height="${barHeight}" rx="4" fill="#5b8af5" opacity="0.8"/>`;
-        svg += `<text x="${labelWidth + barW + 8}" y="${y + barHeight / 2 + 4}" fill="#e4e6eb" font-size="11">${formatBytes(total)}</text>`;
+        // Upload bar
+        svg += `<rect x="${labelWidth}" y="${y}" width="${upBarW}" height="${barHeight}" rx="4" fill="#5b8af5" opacity="0.8"/>`;
+        svg += `<text x="${labelWidth + upBarW + 8}" y="${y + barHeight / 2 + 4}" fill="#e4e6eb" font-size="11">${formatBytes(up)}</text>`;
 
-        // Today bar (below)
-        svg += `<rect x="${labelWidth}" y="${y + barHeight + 2}" width="${todayBarW}" height="${barHeight}" rx="4" fill="#4ade80" opacity="0.7"/>`;
-        if (todayTotal > 0) {
-            svg += `<text x="${labelWidth + todayBarW + 8}" y="${y + barHeight + 2 + barHeight / 2 + 4}" fill="#4ade80" font-size="10">${formatBytes(todayTotal)}</text>`;
+        // Download bar
+        svg += `<rect x="${labelWidth}" y="${y + barHeight + 2}" width="${downBarW}" height="${barHeight}" rx="4" fill="#4ade80" opacity="0.7"/>`;
+        if (down > 0) {
+            svg += `<text x="${labelWidth + downBarW + 8}" y="${y + barHeight + 2 + barHeight / 2 + 4}" fill="#4ade80" font-size="10">${formatBytes(down)}</text>`;
         }
     });
 

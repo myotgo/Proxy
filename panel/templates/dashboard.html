@@ -163,16 +163,23 @@
                 </div>
             </div>
 
-            <h2 data-i18n="per_user_bandwidth">Per-User Bandwidth</h2>
+            <div class="section-header">
+                <h2 data-i18n="per_user_bandwidth">Per-User Bandwidth</h2>
+                <div class="period-selector" id="periodSelector">
+                    <button class="btn btn-sm period-btn active" onclick="setBandwidthPeriod('today', this)" data-i18n="today">Today</button>
+                    <button class="btn btn-sm period-btn" onclick="setBandwidthPeriod('week', this)" data-i18n="this_week">This Week</button>
+                    <button class="btn btn-sm period-btn" onclick="setBandwidthPeriod('month', this)" data-i18n="this_month">This Month</button>
+                    <button class="btn btn-sm period-btn" onclick="setBandwidthPeriod('all', this)" data-i18n="all_time">All Time</button>
+                </div>
+            </div>
             <div id="user-bandwidth-chart" class="chart-container"></div>
             <div class="table-container">
                 <table class="data-table" id="bandwidth-table">
                     <thead>
                         <tr>
                             <th data-i18n="th_username">Username</th>
-                            <th data-i18n="today_usage">Today</th>
-                            <th data-i18n="upload">Upload (Total)</th>
-                            <th data-i18n="download">Download (Total)</th>
+                            <th data-i18n="upload_label">Upload</th>
+                            <th data-i18n="download_label">Download</th>
                             <th data-i18n="total_label">Total</th>
                         </tr>
                     </thead>
