@@ -111,6 +111,9 @@ Choose Installation Method
 
 ### 📚 Complete guide for each method:
 
+At the moment, Layer 3 appears to work more reliably than other layers in Iran.
+However, the connection quality and internet bandwidth (speed) mainly depend on the hosting country’s network capacity and international connectivity, rather than the tunneling layer itself.
+
 - [Layer 3: Basic SSH](./layer3-basic/README.en.md) - Simplest method to get started
 - [Layer 4: Nginx](./layer4-nginx/README.en.md) - Recommended for daily use
 - [Layer 6: Stunnel](./layer6-stunnel/README.en.md) - Double security with TLS wrapper
