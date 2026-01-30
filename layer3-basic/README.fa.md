@@ -81,7 +81,9 @@ https://server-IP:8443
 
 > **توجه:** به جای `server-IP` آدرس IP سرور خود را وارد کنید.
 
-![پنل مدیریت](https://github.com/user-attachments/assets/e25477b7-20e0-44d8-9359-7259de2d8ed9)
+![پنل مدیریت]
+<img width="1023" height="616" alt="3" src="https://github.com/user-attachments/assets/0a0e0264-75d5-4206-b71c-d212a61bbc99" />
+
 
 ---
 
