@@ -82,6 +82,7 @@ https://server-IP:8443
 > **Note:** Replace `server-IP` with your actual server IP address.
 
 ![Management Panel](https://github.com/user-attachments/assets/e25477b7-20e0-44d8-9359-7259de2d8ed9)
+<img width="1023" height="616" alt="3" src="https://github.com/user-attachments/assets/a038a374-91ff-44e4-803b-455d732f3ed2" />
 
 ---
 
