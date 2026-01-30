@@ -64,45 +64,64 @@ ssh root@SERVER-IP
 ```bash
 curl -fsSL https://raw.githubusercontent.com/myotgo/Proxy/main/layer3-basic/install.sh -o install.sh && bash install.sh
 ```
-then go to the given url to manage user and ...
-https://87.106.68.203:8443
-https://server-IP:8443
-<img width="1023" height="616" alt="Screenshot 2026-01-30 at 19 14 59" src="https://github.com/user-attachments/assets/e25477b7-20e0-44d8-9359-7259de2d8ed9" />
-
-
-then you will see a warning that is because we use self sign certificate to create https panel
-
-click on advance
-<img width="1913" height="1011" alt="1" src="https://github.com/user-attachments/assets/4a18b53a-eaaa-4e51-b9c7-d21812eb855e" />
-
-then click on Proceed to IP (unsafe)
-as we are using a fake SSL (we dont want to pay for SSL so we use a fake one to have https insteed of http) browser find this site is not valid in their sertificate list
-<img width="1918" height="1012" alt="2" src="https://github.com/user-attachments/assets/4f763fcc-5bb8-4c0a-b96f-e09285652788" />
-
-after that you will see this page(login). you can change the language to persian if you want
-insert username and password of the server(the one from IONOS)
-
-<img width="2537" height="1393" alt="Screenshot 2026-01-30 at 19 34 00" src="https://github.com/user-attachments/assets/30ac2bde-59bc-4379-af1d-5c8846485210" />
-
-this is the management panel
-you can add and delete user from here
-<img width="2559" height="1410" alt="Screenshot 2026-01-30 at 19 36 25" src="https://github.com/user-attachments/assets/5262345c-7f4d-47d4-bc38-34dff8dd7111" />
-
-you can use different methods here for different layers
-but except the first 3 layer, other do not work in iran at the moment
-so it is better to use the first 1 as it seems it works better for iranian
-<img width="2559" height="1410" alt="Screenshot 2026-01-30 at 19 38 11" src="https://github.com/user-attachments/assets/33037acb-db2d-442b-b1e0-eef5177ed1d1" />
-
-
-
-or alternatively, you can use these urls to add or delete users
-
-
-
-
-
 
 نصب خودکار انجام می‌شود.
+
+---
+
+--------------------------------------------------
+مرحله ۳.۱: دسترسی به پنل مدیریت
+--------------------------------------------------
+
+پس از اتمام نصب، آدرس زیر را در مرورگر خود باز کنید:
+
+```
+https://server-IP:8443
+```
+
+> **توجه:** به جای `server-IP` آدرس IP سرور خود را وارد کنید.
+
+![پنل مدیریت](https://github.com/user-attachments/assets/e25477b7-20e0-44d8-9359-7259de2d8ed9)
+
+---
+
+### هشدار گواهی SSL
+
+مرورگر یک هشدار امنیتی نشان می‌دهد. این به دلیل استفاده از گواهی SSL خودامضا (self-signed) است و مشکلی ندارد.
+
+روی **Advanced** کلیک کنید:
+
+![هشدار SSL](https://github.com/user-attachments/assets/4a18b53a-eaaa-4e51-b9c7-d21812eb855e)
+
+سپس روی **Proceed to IP (unsafe)** کلیک کنید:
+
+> ما از SSL خودامضا استفاده می‌کنیم تا پنل با HTTPS کار کند (بدون نیاز به خرید گواهی). به همین دلیل مرورگر این سایت را در لیست گواهی‌های معتبر خود پیدا نمی‌کند.
+
+![ادامه دادن](https://github.com/user-attachments/assets/4f763fcc-5bb8-4c0a-b96f-e09285652788)
+
+---
+
+### ورود به پنل
+
+صفحه ورود نمایش داده می‌شود. در صورت تمایل می‌توانید زبان را به فارسی تغییر دهید.
+
+نام کاربری و رمز عبور سرور خود (اطلاعات دریافت شده از IONOS) را وارد کنید:
+
+![صفحه ورود](https://github.com/user-attachments/assets/30ac2bde-59bc-4379-af1d-5c8846485210)
+
+---
+
+### پنل مدیریت
+
+این پنل مدیریت سرور شماست. از اینجا می‌توانید کاربران را اضافه یا حذف کنید:
+
+![پنل مدیریت](https://github.com/user-attachments/assets/5262345c-7f4d-47d4-bc38-34dff8dd7111)
+
+در پنل روش‌های مختلفی برای لایه‌های مختلف وجود دارد. در حال حاضر فقط ۳ لایه اول در ایران کار می‌کنند و پیشنهاد می‌شود از لایه اول استفاده کنید چون عملکرد بهتری دارد:
+
+![روش‌های مختلف](https://github.com/user-attachments/assets/33037acb-db2d-442b-b1e0-eef5177ed1d1)
+
+> **روش جایگزین:** همچنین می‌توانید از دستورات زیر برای اضافه یا حذف کاربران استفاده کنید (مرحله ۴ تا ۶ را ببینید).
 
 ---
 
