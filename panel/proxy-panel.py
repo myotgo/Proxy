@@ -34,6 +34,7 @@ DATA_DIR = PANEL_DIR / "data"
 TEMPLATES_DIR = PANEL_DIR / "templates"
 STATIC_DIR = PANEL_DIR / "static"
 LOG_FILE = "/var/log/proxy-panel.log"
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/myotgo/Proxy/main"
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 
@@ -324,12 +325,14 @@ class LayerManager:
                             user_info["created"] = line.split("Created:")[-1].strip()
                 except Exception:
                     pass
-                # Check if connected
+                # Check if connected (ps -u detects SSH tunnel sessions
+                # which don't appear in 'who' for nologin shell users)
                 try:
                     result = subprocess.run(
-                        ["who"], capture_output=True, text=True, timeout=5
+                        ["ps", "-u", username, "--no-headers"],
+                        capture_output=True, text=True, timeout=5
                     )
-                    if username in result.stdout:
+                    if result.returncode == 0 and result.stdout.strip():
                         user_info["connected"] = True
                 except Exception:
                     pass
@@ -343,16 +346,40 @@ class LayerManager:
             try:
                 with open(users_file) as f:
                     data = json.load(f)
+                active_users = self._check_v2ray_users_connected()
                 for username, uuid in data.items():
                     users.append({
                         "username": username,
                         "uuid": uuid,
                         "type": "v2ray",
-                        "connected": False
+                        "connected": username in active_users
                     })
             except Exception as e:
                 log(f"Error reading users.json: {e}", "ERROR")
         return users
+
+    def _check_v2ray_users_connected(self):
+        """Check which V2Ray users have active traffic in the current xray session."""
+        connected = set()
+        stats_port = self.config.xray_stats_port
+        try:
+            result = subprocess.run(
+                ["xray", "api", "statsquery",
+                 f"--server=127.0.0.1:{stats_port}",
+                 "-pattern=user>>>"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                data = json.loads(result.stdout)
+                for stat in data.get("stat", []):
+                    name = stat.get("name", "")
+                    value = int(stat.get("value", "0"))
+                    match = re.match(r"user>>>(.+)@proxy>>>traffic>>>", name)
+                    if match and value > 0:
+                        connected.add(match.group(1))
+        except Exception:
+            pass
+        return connected
 
     def add_user(self, username, password=None):
         """Add a proxy user using existing scripts."""
@@ -558,7 +585,7 @@ class LayerManager:
         return "SERVER_IP"
 
     def _find_script(self, name, subdir):
-        """Find a management script."""
+        """Find a management script. Downloads from GitHub if not found locally."""
         # Check scripts dir first
         scripts_dir = Path(self.config.scripts_dir)
         if (scripts_dir / name).exists():
@@ -571,6 +598,28 @@ class LayerManager:
             path = Path(base) / name
             if path.exists():
                 return str(path)
+        # Fallback: download from GitHub
+        return self._download_script(name, subdir)
+
+    def _download_script(self, name, subdir):
+        """Download script from GitHub raw URL and cache locally."""
+        url = f"{GITHUB_RAW_BASE}/{subdir}/{name}"
+        dest_dir = Path(self.config.scripts_dir)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / f"{subdir}_{name}"
+        try:
+            result = subprocess.run(
+                ["curl", "-fsSL", url, "-o", str(dest)],
+                capture_output=True, text=True, timeout=30
+            )
+            if result.returncode == 0:
+                os.chmod(str(dest), 0o755)
+                log(f"Downloaded script from {url}")
+                return str(dest)
+            else:
+                log(f"Failed to download script from {url}: {result.stderr}", "ERROR")
+        except Exception as e:
+            log(f"Failed to download script: {e}", "ERROR")
         return None
 
 # ─── System Information ───────────────────────────────────────────────────────
@@ -767,7 +816,7 @@ class BandwidthMonitor:
         return raw
 
     def _get_xray_user_bandwidth(self):
-        """Get V2Ray per-user bandwidth from accumulated data."""
+        """Get V2Ray per-user bandwidth from current xray session + accumulated data."""
         users = {}
         users_file = "/usr/local/etc/xray/users.json"
         if not os.path.exists(users_file):
@@ -777,11 +826,15 @@ class BandwidthMonitor:
             with open(users_file) as f:
                 user_data = json.load(f)
 
+            # Include current session stats so usage shows immediately
+            current_stats = self._get_raw_xray_stats()
+
             for username in user_data:
                 persistent = self._data.get("users", {}).get(username, {})
+                current = current_stats.get(username, {})
                 users[username] = {
-                    "uplink": persistent.get("uplink_acc", 0),
-                    "downlink": persistent.get("downlink_acc", 0),
+                    "uplink": current.get("uplink", 0) + persistent.get("uplink_acc", 0),
+                    "downlink": current.get("downlink", 0) + persistent.get("downlink_acc", 0),
                 }
         except Exception as e:
             log(f"Error getting xray user bandwidth: {e}", "ERROR")
