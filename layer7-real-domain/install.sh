@@ -201,8 +201,26 @@ EOF
     chmod 644 /usr/local/etc/xray/config.json
 
     mkdir -p /usr/local/etc/xray
-    echo "{}" > /usr/local/etc/xray/users.json
+    if [ -f /root/proxy-users/xray-users.json ]; then
+        cp /root/proxy-users/xray-users.json /usr/local/etc/xray/users.json
+        log "Restored previous user database from /root/proxy-users/xray-users.json"
+    else
+        echo "{}" > /usr/local/etc/xray/users.json
+    fi
     chmod 644 /usr/local/etc/xray/users.json
+
+    # Re-add restored users to xray config
+    if command -v jq >/dev/null 2>&1; then
+        for username in $(jq -r 'keys[]' /usr/local/etc/xray/users.json 2>/dev/null); do
+            uuid=$(jq -r --arg u "$username" '.[$u]' /usr/local/etc/xray/users.json)
+            if [ -n "$uuid" ] && [ "$uuid" != "null" ]; then
+                jq --arg uuid "$uuid" --arg email "${username}@proxy" \
+                  '.inbounds[0].settings.clients += [{"id":$uuid,"email":$email}]' \
+                  /usr/local/etc/xray/config.json > /tmp/xray.json && mv /tmp/xray.json /usr/local/etc/xray/config.json
+                log "Restored user: $username"
+            fi
+        done
+    fi
 
     if [ -n "$DUCKDNS_TOKEN" ]; then
         cat > /usr/local/etc/xray/server-config.json <<EOF

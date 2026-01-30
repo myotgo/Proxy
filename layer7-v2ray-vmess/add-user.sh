@@ -57,8 +57,8 @@ else
     mv /tmp/users.json "$USER_DB"
 
     # Add to Xray config
-    jq --arg uuid "$UUID" \
-      '.inbounds[0].settings.clients += [{"id":$uuid,"alterId":0}]' \
+    jq --arg uuid "$UUID" --arg email "${USERNAME}@proxy" \
+      '.inbounds[0].settings.clients += [{"id":$uuid,"alterId":0,"email":$email}]' \
       "$CONFIG" > /tmp/xray.json
 
     mv /tmp/xray.json "$CONFIG"

@@ -138,9 +138,27 @@ EOF
     chown nobody:nogroup /usr/local/etc/xray/config.json
     chmod 644 /usr/local/etc/xray/config.json
 
-    # Create empty user database
-    echo "{}" > /usr/local/etc/xray/users.json
+    # Restore or create user database
+    if [ -f /root/proxy-users/xray-users.json ]; then
+        cp /root/proxy-users/xray-users.json /usr/local/etc/xray/users.json
+        log "Restored previous user database from /root/proxy-users/xray-users.json"
+    else
+        echo "{}" > /usr/local/etc/xray/users.json
+    fi
     chmod 644 /usr/local/etc/xray/users.json
+
+    # Re-add restored users to xray config
+    if command -v jq >/dev/null 2>&1; then
+        for username in $(jq -r 'keys[]' /usr/local/etc/xray/users.json 2>/dev/null); do
+            uuid=$(jq -r --arg u "$username" '.[$u]' /usr/local/etc/xray/users.json)
+            if [ -n "$uuid" ] && [ "$uuid" != "null" ]; then
+                jq --arg uuid "$uuid" --arg email "${username}@proxy" \
+                  '.inbounds[0].settings.clients += [{"id":$uuid,"alterId":0,"email":$email}]' \
+                  /usr/local/etc/xray/config.json > /tmp/xray.json && mv /tmp/xray.json /usr/local/etc/xray/config.json
+                log "Restored user: $username"
+            fi
+        done
+    fi
 
     log "Xray configured"
 

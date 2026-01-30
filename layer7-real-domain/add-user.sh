@@ -59,8 +59,8 @@ else
     jq --arg u "$USERNAME" --arg id "$UUID" '. + {($u): $id}' "$USER_DB" > /tmp/users.json
     mv /tmp/users.json "$USER_DB"
 
-    jq --arg uuid "$UUID" \
-      '.inbounds[0].settings.clients += [{"id":$uuid}]' \
+    jq --arg uuid "$UUID" --arg email "${USERNAME}@proxy" \
+      '.inbounds[0].settings.clients += [{"id":$uuid,"email":$email}]' \
       "$CONFIG" > /tmp/xray.json
     mv /tmp/xray.json "$CONFIG"
 

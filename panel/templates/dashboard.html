@@ -277,16 +277,21 @@
             </div>
             <div id="configContent">
                 <div class="config-section">
-                    <h3 data-i18n="quick_connect">Quick Connect URI</h3>
+                    <h3 data-i18n="quick_connect">Quick Connect String</h3>
                     <div class="copy-box">
                         <code id="configUri"></code>
                         <button class="btn btn-sm btn-secondary" onclick="copyText('configUri')" data-i18n="copy">Copy</button>
                     </div>
                 </div>
                 <div class="config-section">
-                    <h3 data-i18n="client_config">Client Configuration</h3>
-                    <pre id="configJson" class="config-json"></pre>
-                    <button class="btn btn-sm btn-secondary" onclick="copyText('configJson')" data-i18n="copy_config">Copy Config</button>
+                    <h3>iOS (NPV Tunnel)</h3>
+                    <pre id="configIos" class="config-json"></pre>
+                    <button class="btn btn-sm btn-secondary" onclick="copyText('configIos')" data-i18n="copy_config">Copy Config</button>
+                </div>
+                <div class="config-section">
+                    <h3>Android (NetMod) / Local SOCKS</h3>
+                    <pre id="configAndroid" class="config-json"></pre>
+                    <button class="btn btn-sm btn-secondary" onclick="copyText('configAndroid')" data-i18n="copy_config">Copy Config</button>
                 </div>
             </div>
             <div class="modal-actions">

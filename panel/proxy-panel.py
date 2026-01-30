@@ -422,18 +422,12 @@ class LayerManager:
             )
             if result.returncode == 0:
                 log(f"User '{username}' added successfully (V2Ray)")
-                # Read users.json to get the UUID
-                users_file = "/usr/local/etc/xray/users.json"
-                uuid = None
-                if os.path.exists(users_file):
-                    with open(users_file) as f:
-                        data = json.load(f)
-                    uuid = data.get(username)
-                return {
-                    "success": True,
-                    "output": result.stdout,
-                    "uuid": uuid
-                }
+                # Return full connection config
+                config_result = self.get_user_config(username)
+                response = {"success": True, "output": result.stdout}
+                if config_result.get("success"):
+                    response.update(config_result)
+                return response
             else:
                 return {"success": False, "error": result.stderr or result.stdout}
         except subprocess.TimeoutExpired:
@@ -504,12 +498,13 @@ class LayerManager:
             return {"success": False, "error": str(e)}
 
     def get_user_config(self, username):
-        """Get V2Ray user connection configuration."""
+        """Get V2Ray user connection configuration with proper transport detection."""
         if not self.is_v2ray_layer():
             return {"success": False, "error": "Not a V2Ray layer"}
 
         users_file = "/usr/local/etc/xray/users.json"
         server_cfg_file = "/usr/local/etc/xray/server-config.json"
+        xray_config_file = "/usr/local/etc/xray/config.json"
 
         try:
             with open(users_file) as f:
@@ -523,40 +518,79 @@ class LayerManager:
                 with open(server_cfg_file) as f:
                     server_cfg = json.load(f)
 
+            # Detect transport from xray config
+            transport = "ws"
+            if os.path.exists(xray_config_file):
+                with open(xray_config_file) as f:
+                    xray_cfg = json.load(f)
+                for inb in xray_cfg.get("inbounds", []):
+                    if inb.get("protocol") in ("vless", "vmess"):
+                        transport = inb.get("streamSettings", {}).get("network", "ws")
+                        break
+
             domain = server_cfg.get("domain", "")
-            ws_path = server_cfg.get("ws_path", "/")
             protocol = server_cfg.get("protocol", "vless")
             server_ip = self._get_server_ip()
             host = domain if domain else server_ip
 
-            # Build connection URI
-            if protocol == "vless":
+            if transport == "grpc":
+                grpc_service = server_cfg.get("grpc_service", "")
+                uri = f"vless://{uuid}@{host}:443?type=grpc&security=tls&serviceName={grpc_service}&sni={host}#{username}"
+
+                stream = {
+                    "network": "grpc",
+                    "security": "tls",
+                    "tlsSettings": {"serverName": host, "allowInsecure": False, "alpn": ["h2"]},
+                    "grpcSettings": {"serviceName": grpc_service}
+                }
+            else:
+                ws_path = server_cfg.get("ws_path", "/")
+                allow_insecure = not bool(domain)
                 uri = f"vless://{uuid}@{host}:443?type=ws&security=tls&path={ws_path}"
                 if domain:
                     uri += f"&sni={domain}"
                 uri += f"#{username}"
-            else:
-                uri = f"vmess://{uuid}@{host}:443"
 
-            # Build client configs
+                tls_settings = {"allowInsecure": allow_insecure}
+                if domain:
+                    tls_settings["serverName"] = domain
+
+                stream = {
+                    "network": "ws",
+                    "security": "tls",
+                    "tlsSettings": tls_settings,
+                    "wsSettings": {"path": ws_path}
+                }
+
+            vnext = [{"address": host, "port": 443, "users": [{"id": uuid, "encryption": "none"}]}]
+
             ios_config = {
-                "protocol": protocol,
-                "uuid": uuid,
-                "address": host,
-                "port": 443,
-                "transport": "ws",
-                "ws_path": ws_path,
-                "tls": True,
-                "sni": domain if domain else host
+                "inbounds": [],
+                "outbounds": [{
+                    "protocol": protocol,
+                    "settings": {"vnext": vnext},
+                    "streamSettings": stream
+                }]
+            }
+
+            android_config = {
+                "inbounds": [{"port": 10808, "listen": "127.0.0.1", "protocol": "socks", "settings": {"udp": True}}],
+                "outbounds": [{
+                    "protocol": protocol,
+                    "settings": {"vnext": vnext},
+                    "streamSettings": stream
+                }]
             }
 
             return {
                 "success": True,
                 "uuid": uuid,
                 "uri": uri,
-                "config": ios_config,
+                "ios_config": ios_config,
+                "android_config": android_config,
                 "host": host,
-                "protocol": protocol
+                "protocol": protocol,
+                "transport": transport
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -1491,18 +1525,20 @@ def main():
     _layer_mgr = LayerManager(_config)
     _bandwidth = BandwidthMonitor(_config)
 
-    # Auto-detect layer if not set
-    if _config.layer == "unknown":
-        detected = _layer_mgr.detect_layer()
-        _config.layer = detected
-        if detected.startswith("layer7"):
-            _config.service_type = "xray"
-            _config.user_management = "v2ray"
-        else:
-            _config.service_type = "ssh"
-            _config.user_management = "ssh"
-        _config.save()
-        log(f"Auto-detected layer: {detected}")
+    # Always re-detect layer on startup (handles layer changes after reinstall)
+    detected = _layer_mgr.detect_layer()
+    if detected != _config.layer:
+        log(f"Layer changed: {_config.layer} -> {detected}")
+    _config.layer = detected
+    _layer_mgr.layer = detected
+    if detected.startswith("layer7"):
+        _config.service_type = "xray"
+        _config.user_management = "v2ray"
+    else:
+        _config.service_type = "ssh"
+        _config.user_management = "ssh"
+    _config.save()
+    log(f"Active layer: {detected}")
 
     # Ensure data directory exists
     DATA_DIR.mkdir(parents=True, exist_ok=True)

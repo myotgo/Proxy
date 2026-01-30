@@ -405,6 +405,10 @@ async function handleAddUser(e) {
             closeModal("addUserModal");
             showToast(t("user_added"), "success");
             loadUsers();
+            // Show connection config for V2Ray users
+            if (currentLayerIsV2Ray && data.uri) {
+                displayConfigModal(data);
+            }
         } else {
             errorDiv.textContent = data.error || "Failed to add user";
             errorDiv.style.display = "block";
@@ -462,17 +466,21 @@ async function showConfig(username) {
         const resp = await api(`/api/users/${encodeURIComponent(username)}/config`);
         if (!resp) return;
         const data = await resp.json();
-
         if (data.success) {
-            document.getElementById("configUri").textContent = data.uri || "";
-            document.getElementById("configJson").textContent = JSON.stringify(data.config, null, 2);
-            document.getElementById("configModal").style.display = "flex";
+            displayConfigModal(data);
         } else {
             showToast(data.error || "Failed to get config", "error");
         }
     } catch (err) {
         showToast("Network error", "error");
     }
+}
+
+function displayConfigModal(data) {
+    document.getElementById("configUri").textContent = data.uri || "";
+    document.getElementById("configIos").textContent = JSON.stringify(data.ios_config || data.config || {}, null, 2);
+    document.getElementById("configAndroid").textContent = JSON.stringify(data.android_config || {}, null, 2);
+    document.getElementById("configModal").style.display = "flex";
 }
 
 /* ─── Bandwidth ─────────────────────────────────────────────────────────── */
