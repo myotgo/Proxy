@@ -44,6 +44,20 @@ choose_free_port() {
     return 1
 }
 
+disable_plesk() {
+    if ! command -v systemctl >/dev/null 2>&1; then
+        return 1
+    fi
+    if systemctl list-unit-files 2>/dev/null | grep -qE '^(sw-cp-server|sw-engine|plesk)\.service'; then
+        log_msg "Plesk detected. Disabling to free port 8443..."
+        systemctl stop sw-cp-server sw-engine plesk >/dev/null 2>&1 || true
+        systemctl disable sw-cp-server sw-engine plesk >/dev/null 2>&1 || true
+        sleep 2
+        return 0
+    fi
+    return 1
+}
+
 # ─── Pre-flight ───────────────────────────────────────────────────────────────
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -123,6 +137,12 @@ PY
 )
     if [ -n "$EXISTING_PORT" ]; then
         PANEL_PORT="$EXISTING_PORT"
+    fi
+fi
+
+if port_in_use "$PANEL_PORT"; then
+    if [ "$PANEL_PORT" = "8443" ]; then
+        disable_plesk || true
     fi
 fi
 
