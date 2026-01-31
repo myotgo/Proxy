@@ -596,6 +596,19 @@ body {
     gap: 4px;
 }
 
+.bandwidth-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.bandwidth-refresh-note {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    margin: 6px 0 16px;
+}
+
 .period-btn {
     padding: 4px 12px;
     border-radius: 6px;
@@ -1041,6 +1054,19 @@ body {
         flex-direction: column;
         align-items: flex-start;
         gap: 12px;
+    }
+
+    .period-selector {
+        flex-wrap: wrap;
+    }
+
+    .chart-container {
+        padding: 14px;
+        overflow-x: auto;
+    }
+
+    .chart-container svg {
+        min-width: 520px;
     }
 
     .modal {

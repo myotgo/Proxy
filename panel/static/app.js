@@ -73,6 +73,7 @@ const translations = {
         upload_label: "Upload",
         download_label: "Download",
         total_label: "Total",
+        auto_refresh_note: "Auto refresh every 10s",
 
         // Connections
         connections_title: "Active Connections",
@@ -187,6 +188,7 @@ const translations = {
         upload_label: "\u0622\u067e\u0644\u0648\u062f",
         download_label: "\u062f\u0627\u0646\u0644\u0648\u062f",
         total_label: "\u06a9\u0644",
+        auto_refresh_note: "\u0628\u0647\u200c\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06cc \u062e\u0648\u062f\u06a9\u0627\u0631 \u0647\u0631 \u06f1\u06f0 \u062b\u0627\u0646\u06cc\u0647",
 
         connections_title: "\u0627\u062a\u0635\u0627\u0644\u0627\u062a \u0641\u0639\u0627\u0644",
         refresh: "\u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06cc",
@@ -240,9 +242,20 @@ let currentLayerIsV2Ray = false;
 let pendingDeleteUser = null;
 let currentBandwidthPeriod = "today";
 let bandwidthData = null;
+let bandwidthLoading = false;
+let bandwidthRefreshInterval = null;
+const BANDWIDTH_REFRESH_MS = 10000;
 let layersData = null;
 let switchPollInterval = null;
 let pendingSwitchLayer = null;
+let sectionRefreshInterval = null;
+const SECTION_REFRESH_MS = {
+    overview: 30000,
+    users: 20000,
+    bandwidth: 10000,
+    connections: 10000,
+    settings: 30000
+};
 
 /* ─── Language ──────────────────────────────────────────────────────────── */
 
@@ -287,11 +300,16 @@ function showSection(name, navEl) {
     document.getElementById("sidebar").classList.remove("open");
 
     // Load data for section
+    stopBandwidthAutoRefresh();
+    stopSectionAutoRefresh();
+
     if (name === "overview") loadOverview();
     else if (name === "users") loadUsers();
     else if (name === "bandwidth") loadBandwidth();
     else if (name === "connections") loadConnections();
     else if (name === "settings") loadLayers();
+
+    startSectionAutoRefresh(name);
 }
 
 /* ─── API Helper ────────────────────────────────────────────────────────── */
@@ -601,6 +619,10 @@ function renderUserBandwidth(users) {
 }
 
 async function loadBandwidth() {
+    if (bandwidthLoading) return;
+    bandwidthLoading = true;
+    const refreshBtn = document.getElementById("bandwidthRefreshBtn");
+    if (refreshBtn) refreshBtn.disabled = true;
     try {
         const [sysResp, userResp] = await Promise.all([
             api("/api/bandwidth/system"),
@@ -624,6 +646,51 @@ async function loadBandwidth() {
         }
     } catch (err) {
         console.error("Failed to load bandwidth:", err);
+    } finally {
+        bandwidthLoading = false;
+        if (refreshBtn) refreshBtn.disabled = false;
+    }
+}
+
+async function refreshBandwidth() {
+    await loadBandwidth();
+}
+
+function startBandwidthAutoRefresh() {
+    stopBandwidthAutoRefresh();
+    bandwidthRefreshInterval = setInterval(() => {
+        const activeSection = document.querySelector(".section.active");
+        if (activeSection && activeSection.id === "section-bandwidth") {
+            loadBandwidth();
+        }
+    }, BANDWIDTH_REFRESH_MS);
+}
+
+function stopBandwidthAutoRefresh() {
+    if (bandwidthRefreshInterval) {
+        clearInterval(bandwidthRefreshInterval);
+        bandwidthRefreshInterval = null;
+    }
+}
+
+function startSectionAutoRefresh(sectionName) {
+    const interval = SECTION_REFRESH_MS[sectionName];
+    if (!interval) return;
+    sectionRefreshInterval = setInterval(() => {
+        const activeSection = document.querySelector(".section.active");
+        if (!activeSection || activeSection.id !== `section-${sectionName}`) return;
+        if (sectionName === "overview") loadOverview();
+        else if (sectionName === "users") loadUsers();
+        else if (sectionName === "bandwidth") loadBandwidth();
+        else if (sectionName === "connections") loadConnections();
+        else if (sectionName === "settings") loadLayers();
+    }, interval);
+}
+
+function stopSectionAutoRefresh() {
+    if (sectionRefreshInterval) {
+        clearInterval(sectionRefreshInterval);
+        sectionRefreshInterval = null;
     }
 }
 
@@ -1022,14 +1089,7 @@ async function handleLogout() {
 document.addEventListener("DOMContentLoaded", () => {
     applyLang(currentLang);
     loadOverview();
-
-    // Auto-refresh overview every 30 seconds
-    setInterval(() => {
-        const activeSection = document.querySelector(".section.active");
-        if (activeSection && activeSection.id === "section-overview") {
-            loadOverview();
-        }
-    }, 30000);
+    startSectionAutoRefresh("overview");
 });
 
 // Close modal on backdrop click
