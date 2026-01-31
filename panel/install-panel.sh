@@ -140,9 +140,28 @@ PY
     fi
 fi
 
-if port_in_use "$PANEL_PORT"; then
-    if [ "$PANEL_PORT" = "8443" ]; then
-        disable_plesk || true
+FORCE_PORT_8443=0
+if port_in_use "8443"; then
+    if disable_plesk; then
+        if ! port_in_use "8443"; then
+            FORCE_PORT_8443=1
+        fi
+    fi
+fi
+
+if [ "$FORCE_PORT_8443" -eq 1 ]; then
+    PANEL_PORT=8443
+    if [ -f "$PANEL_DIR/panel.conf" ] && command -v python3 >/dev/null 2>&1; then
+        python3 - <<PY
+import json
+path = "/opt/proxy-panel/panel.conf"
+with open(path, "r", encoding="utf-8") as f:
+    data = json.load(f)
+data["port"] = 8443
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=2)
+PY
+        chmod 600 "$PANEL_DIR/panel.conf" || true
     fi
 fi
 

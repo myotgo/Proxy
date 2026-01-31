@@ -394,8 +394,23 @@ EOF
     fi
     echo "Next step: Add a user to get connection config"
     echo ""
-    echo "Management Panel:"
-    echo "  URL: https://${SERVER_IP}:8443"
+    PANEL_PORT=8443
+if [ -f /opt/proxy-panel/panel.conf ] && command -v python3 >/dev/null 2>&1; then
+    PANEL_PORT=$(python3 - <<'PY'
+import json
+try:
+    with open('/opt/proxy-panel/panel.conf', 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    port = data.get('port')
+    print(port if isinstance(port, int) else '8443')
+except Exception:
+    print('8443')
+PY
+)
+fi
+
+echo "Management Panel:"
+    echo "  URL: https://${SERVER_IP}:${PANEL_PORT}"
     echo "  Login with your server root credentials"
     echo ""
     echo "CLI Management commands:"
