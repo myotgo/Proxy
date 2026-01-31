@@ -376,6 +376,8 @@ class LayerManager:
                     for line in content.splitlines():
                         if "Created:" in line:
                             user_info["created"] = line.split("Created:")[-1].strip()
+                        if "Password:" in line:
+                            user_info["password"] = line.split("Password:")[-1].strip()
                 except Exception:
                     pass
                 users.append(user_info)
@@ -457,6 +459,14 @@ class LayerManager:
                 return {"success": False, "error": "Password required for SSH users"}
             return self._add_ssh_user(username, password)
 
+    def update_user_password(self, username, password):
+        """Update password for an existing SSH user."""
+        if self.is_v2ray_layer():
+            return {"success": False, "error": "Password changes are only supported for SSH users"}
+        if not self._ssh_user_exists(username):
+            return {"success": False, "error": "User not found"}
+        return self._add_ssh_user(username, password)
+
     def _add_ssh_user(self, username, password):
         script = self._find_script("add-user.sh", "common")
         if not script:
@@ -475,6 +485,16 @@ class LayerManager:
             return {"success": False, "error": "Script timed out"}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    def _ssh_user_exists(self, username):
+        try:
+            result = subprocess.run(
+                ["id", username],
+                capture_output=True, text=True, timeout=5
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
 
     def _add_v2ray_user(self, username):
         # Find the correct add-user.sh for this layer
@@ -1540,6 +1560,9 @@ class PanelHandler(http.server.BaseHTTPRequestHandler):
 
         if path == "/api/users":
             self._handle_add_user()
+        elif path.startswith("/api/users/") and path.endswith("/password"):
+            username = path[len("/api/users/"):-len("/password")]
+            self._handle_update_password(unquote(username))
         elif path == "/api/service/restart":
             self._handle_service_restart()
         elif path == "/api/layer/switch":
@@ -1709,6 +1732,27 @@ class PanelHandler(http.server.BaseHTTPRequestHandler):
             self._send_json({"error": "Invalid username"}, 400)
             return
         result = _layer_mgr.delete_user(username)
+        status = 200 if result.get("success") else 400
+        self._send_json(result, status)
+
+    def _handle_update_password(self, username):
+        try:
+            body = json.loads(self._read_body())
+        except Exception:
+            self._send_json({"error": "Invalid request"}, 400)
+            return
+
+        password = body.get("password", "")
+
+        if not re.match(r"^[a-zA-Z0-9_-]{3,32}$", username):
+            self._send_json({"error": "Invalid username"}, 400)
+            return
+
+        if len(password) < 8:
+            self._send_json({"error": "Password must be at least 8 characters"}, 400)
+            return
+
+        result = _layer_mgr.update_user_password(username, password)
         status = 200 if result.get("success") else 400
         self._send_json(result, status)
 

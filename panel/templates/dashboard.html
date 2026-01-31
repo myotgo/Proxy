@@ -141,6 +141,7 @@
                             <th data-i18n="th_type">Type</th>
                             <th data-i18n="th_status">Status</th>
                             <th data-i18n="th_created">Created</th>
+                            <th data-i18n="th_password">Password</th>
                             <th data-i18n="th_actions">Actions</th>
                         </tr>
                     </thead>
@@ -316,6 +317,37 @@
                     </button>
                     <button type="submit" class="btn btn-primary" id="addUserBtn">
                         <span data-i18n="add_user">Add User</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div class="modal-overlay" id="changePasswordModal" style="display:none">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 data-i18n="change_password">Change Password</h2>
+                <button class="modal-close" onclick="closeModal('changePasswordModal')">&times;</button>
+            </div>
+            <form id="changePasswordForm" onsubmit="handleChangePassword(event)">
+                <div class="form-group">
+                    <label for="changePasswordUsername" data-i18n="username">Username</label>
+                    <input type="text" id="changePasswordUsername" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="changePasswordInput" data-i18n="new_password">New Password</label>
+                    <input type="password" id="changePasswordInput" minlength="8"
+                           placeholder="Minimum 8 characters" required>
+                    <small data-i18n="password_hint">Minimum 8 characters.</small>
+                </div>
+                <div id="changePasswordError" class="error-message" style="display:none"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('changePasswordModal')">
+                        <span data-i18n="cancel">Cancel</span>
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="changePasswordBtn">
+                        <span data-i18n="update_password">Update Password</span>
                     </button>
                 </div>
             </form>

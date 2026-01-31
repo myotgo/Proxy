@@ -29,12 +29,19 @@ const translations = {
         th_type: "Type",
         th_status: "Status",
         th_created: "Created",
+        th_password: "Password",
         th_actions: "Actions",
         no_users: "No users found. Add your first user.",
         connected: "Connected",
         offline: "Offline",
         config: "Config",
         delete: "Delete",
+        show_password: "Show password",
+        hide_password: "Hide password",
+        change_password: "Change Password",
+        new_password: "New Password",
+        update_password: "Update Password",
+        password_updated: "Password updated successfully",
         add_new_user: "Add New User",
         username: "Username",
         password: "Password",
@@ -148,12 +155,19 @@ const translations = {
         th_type: "\u0646\u0648\u0639",
         th_status: "\u0648\u0636\u0639\u06cc\u062a",
         th_created: "\u062a\u0627\u0631\u06cc\u062e \u0633\u0627\u062e\u062a",
+        th_password: "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631",
         th_actions: "\u0639\u0645\u0644\u06cc\u0627\u062a",
         no_users: "\u06a9\u0627\u0631\u0628\u0631\u06cc \u06cc\u0627\u0641\u062a \u0646\u0634\u062f. \u0627\u0648\u0644\u06cc\u0646 \u06a9\u0627\u0631\u0628\u0631 \u0631\u0627 \u0627\u0636\u0627\u0641\u0647 \u06a9\u0646\u06cc\u062f.",
         connected: "\u0645\u062a\u0635\u0644",
         offline: "\u0622\u0641\u0644\u0627\u06cc\u0646",
         config: "\u067e\u06cc\u06a9\u0631\u0628\u0646\u062f\u06cc",
         delete: "\u062d\u0630\u0641",
+        show_password: "\u0646\u0645\u0627\u06cc\u0634 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631",
+        hide_password: "\u067e\u0646\u0647\u0627\u0646 \u06a9\u0631\u062f\u0646 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631",
+        change_password: "\u062a\u063a\u06cc\u06cc\u0631 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631",
+        new_password: "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u062c\u062f\u06cc\u062f",
+        update_password: "\u0628\u0647\u200c\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06cc \u0631\u0645\u0632 \u0639\u0628\u0648\u0631",
+        password_updated: "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0628\u0627 \u0645\u0648\u0641\u0642\u06cc\u062a \u0628\u0647\u200c\u0631\u0648\u0632 \u0634\u062f",
         add_new_user: "\u0627\u0641\u0632\u0648\u062f\u0646 \u06a9\u0627\u0631\u0628\u0631 \u062c\u062f\u06cc\u062f",
         username: "\u0646\u0627\u0645 \u06a9\u0627\u0631\u0628\u0631\u06cc",
         password: "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631",
@@ -242,6 +256,7 @@ const translations = {
 let currentLang = localStorage.getItem("lang") || "en";
 let currentLayerIsV2Ray = false;
 let pendingDeleteUser = null;
+let pendingPasswordUser = null;
 let currentBandwidthPeriod = "today";
 let bandwidthData = null;
 let bandwidthLoading = false;
@@ -420,8 +435,23 @@ async function loadUsers() {
         tbody.innerHTML = users.map(u => {
             const statusClass = u.connected ? "connected" : "offline";
             const statusText = u.connected ? t("connected") : t("offline");
+            const hasPassword = u.type === "ssh" && u.password;
+            const passwordValue = hasPassword ? String(u.password) : "";
+            const passwordAttr = hasPassword ? escapeHtml(passwordValue) : "";
+            const maskedPassword = hasPassword ? maskPassword(passwordValue) : "-";
+            const passwordCell = u.type === "ssh"
+                ? `<div class="password-cell">
+                        <span class="password-text" data-password="${passwordAttr}" data-visible="false">${escapeHtml(maskedPassword)}</span>
+                        <button class="icon-btn" type="button" onclick="togglePasswordVisibility(this)" ${hasPassword ? "" : "disabled"} title="${t("show_password")}" aria-label="${t("show_password")}">
+                            ${eyeIcon(false)}
+                        </button>
+                   </div>`
+                : "-";
             const configBtn = u.type === "v2ray"
                 ? `<button class="btn btn-sm btn-secondary" onclick="showConfig('${u.username}')">${t("config")}</button>`
+                : "";
+            const changePwBtn = u.type === "ssh"
+                ? `<button class="btn btn-sm btn-secondary" onclick="showChangePasswordModal('${u.username}')">${t("change_password")}</button>`
                 : "";
 
             return `<tr>
@@ -429,9 +459,11 @@ async function loadUsers() {
                 <td>${u.type || "ssh"}</td>
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                 <td>${u.created || "-"}</td>
+                <td>${passwordCell}</td>
                 <td>
                     <div class="user-actions">
                         ${configBtn}
+                        ${changePwBtn}
                         <button class="btn btn-sm btn-danger" onclick="showDeleteModal('${escapeHtml(u.username)}')">${t("delete")}</button>
                     </div>
                 </td>
@@ -458,6 +490,16 @@ function showAddUserModal() {
     }
 
     document.getElementById("newUsername").focus();
+}
+
+function showChangePasswordModal(username) {
+    if (currentLayerIsV2Ray) return;
+    pendingPasswordUser = username;
+    document.getElementById("changePasswordUsername").value = username;
+    document.getElementById("changePasswordInput").value = "";
+    document.getElementById("changePasswordError").style.display = "none";
+    document.getElementById("changePasswordModal").style.display = "flex";
+    document.getElementById("changePasswordInput").focus();
 }
 
 async function handleAddUser(e) {
@@ -501,6 +543,43 @@ async function handleAddUser(e) {
     } finally {
         btn.disabled = false;
         btn.querySelector("span").textContent = t("add_user");
+    }
+}
+
+async function handleChangePassword(e) {
+    e.preventDefault();
+    if (!pendingPasswordUser) return;
+
+    const btn = document.getElementById("changePasswordBtn");
+    const errorDiv = document.getElementById("changePasswordError");
+    const password = document.getElementById("changePasswordInput").value;
+
+    btn.disabled = true;
+    btn.querySelector("span").textContent = t("update_password");
+    errorDiv.style.display = "none";
+
+    try {
+        const resp = await api(`/api/users/${encodeURIComponent(pendingPasswordUser)}/password`, {
+            method: "POST",
+            body: JSON.stringify({ password })
+        });
+
+        const data = await resp.json();
+        if (data.success) {
+            closeModal("changePasswordModal");
+            showToast(t("password_updated"), "success");
+            loadUsers();
+        } else {
+            errorDiv.textContent = data.error || "Failed to update password";
+            errorDiv.style.display = "block";
+        }
+    } catch (err) {
+        errorDiv.textContent = "Network error";
+        errorDiv.style.display = "block";
+    } finally {
+        btn.disabled = false;
+        btn.querySelector("span").textContent = t("update_password");
+        pendingPasswordUser = null;
     }
 }
 
@@ -1045,6 +1124,44 @@ async function resetSwitchAndShowLayers() {
 
 function closeModal(id) {
     document.getElementById(id).style.display = "none";
+}
+
+function maskPassword(password) {
+    if (!password) return "-";
+    return "********";
+}
+
+function eyeIcon(visible) {
+    if (visible) {
+        return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        </svg>`;
+    }
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.77 21.77 0 0 1 5.17-6.62"></path>
+        <path d="M1 1l22 22"></path>
+        <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.86 21.86 0 0 1-3.2 4.83"></path>
+        <path d="M14.12 14.12a3 3 0 0 1-4.24-4.24"></path>
+    </svg>`;
+}
+
+function togglePasswordVisibility(btn) {
+    const wrapper = btn.closest(".password-cell");
+    if (!wrapper) return;
+    const textEl = wrapper.querySelector(".password-text");
+    if (!textEl) return;
+
+    const password = textEl.getAttribute("data-password") || "";
+    if (!password) return;
+
+    const isVisible = textEl.getAttribute("data-visible") === "true";
+    textEl.textContent = isVisible ? maskPassword(password) : password;
+    textEl.setAttribute("data-visible", isVisible ? "false" : "true");
+    btn.innerHTML = eyeIcon(!isVisible);
+    const label = isVisible ? t("show_password") : t("hide_password");
+    btn.setAttribute("title", label);
+    btn.setAttribute("aria-label", label);
 }
 
 function escapeHtml(str) {

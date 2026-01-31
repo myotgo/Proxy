@@ -178,6 +178,7 @@ EOF
     mkdir -p /root/proxy-users
     cat > "/root/proxy-users/$USERNAME.txt" <<EOF
 Username: $USERNAME
+Password: $PASSWORD
 Created: $(date)
 Type: SSH SOCKS Proxy
 Status: Active
