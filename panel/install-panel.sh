@@ -29,6 +29,21 @@ log_msg() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE" 2>/dev/null || true
 }
 
+port_in_use() {
+    local port="$1"
+    ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "(^|:)${port}$"
+}
+
+choose_free_port() {
+    for p in "$@"; do
+        if ! port_in_use "$p"; then
+            echo "$p"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # ─── Pre-flight ───────────────────────────────────────────────────────────────
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -91,6 +106,47 @@ copy_or_download "static/style.css"
 copy_or_download "static/app.js"
 
 chmod +x "$PANEL_DIR/proxy-panel.py"
+
+# Determine Panel Port
+
+if [ -f "$PANEL_DIR/panel.conf" ] && command -v python3 >/dev/null 2>&1; then
+    EXISTING_PORT=$(python3 - <<'PY'
+import json
+try:
+    with open("/opt/proxy-panel/panel.conf", "r", encoding="utf-8") as f:
+        data = json.load(f)
+    port = data.get("port")
+    print(port if isinstance(port, int) else "")
+except Exception:
+    print("")
+PY
+)
+    if [ -n "$EXISTING_PORT" ]; then
+        PANEL_PORT="$EXISTING_PORT"
+    fi
+fi
+
+if port_in_use "$PANEL_PORT"; then
+    NEW_PORT="$(choose_free_port 8443 9443 10443 11443)"
+    if [ -n "$NEW_PORT" ] && [ "$NEW_PORT" != "$PANEL_PORT" ]; then
+        log_msg "Port $PANEL_PORT is in use. Switching panel to port $NEW_PORT."
+        PANEL_PORT="$NEW_PORT"
+        if [ -f "$PANEL_DIR/panel.conf" ] && command -v python3 >/dev/null 2>&1; then
+            python3 - <<PY
+import json
+path = "/opt/proxy-panel/panel.conf"
+with open(path, "r", encoding="utf-8") as f:
+    data = json.load(f)
+data["port"] = int("$PANEL_PORT")
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=2)
+PY
+            chmod 600 "$PANEL_DIR/panel.conf" || true
+        fi
+    else
+        log_msg "WARN: No free panel port found in candidate list."
+    fi
+fi
 
 # ─── Copy Management Scripts ──────────────────────────────────────────────────
 
