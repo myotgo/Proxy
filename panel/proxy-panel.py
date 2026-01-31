@@ -1086,6 +1086,30 @@ class BandwidthMonitor:
 
         return raw
 
+    @staticmethod
+    def _read_iptables_chain_bytes(table, chain):
+        """Return a list of byte counters for rules in a chain or None if chain missing."""
+        try:
+            cmd = ["iptables"]
+            if table:
+                cmd += ["-t", table]
+            cmd += ["-L", chain, "-v", "-n", "-x"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if result.returncode != 0:
+                return None
+            lines = result.stdout.splitlines()[2:]
+            bytes_list = []
+            for line in lines:
+                parts = line.split()
+                if len(parts) >= 2:
+                    try:
+                        bytes_list.append(int(parts[1]))
+                    except ValueError:
+                        continue
+            return bytes_list
+        except Exception:
+            return None
+
     def _get_xray_user_bandwidth(self):
         """Get V2Ray per-user bandwidth from current xray session + accumulated data."""
         users = {}
@@ -1125,25 +1149,21 @@ class BandwidthMonitor:
             downlink = 0
 
             try:
-                # Check iptables OUTPUT chain (upload: from user to internet)
-                result = subprocess.run(
-                    ["iptables", "-L", f"PROXY_USER_{username}", "-v", "-n", "-x"],
-                    capture_output=True, text=True, timeout=5
-                )
-                if result.returncode == 0:
-                    lines = result.stdout.splitlines()[2:]
-                    for i, line in enumerate(lines):
-                        parts = line.split()
-                        if len(parts) >= 2:
-                            bytes_count = int(parts[1])
-                            # First rule = upload (OUTPUT), second = download (INPUT)
-                            if i == 0:
-                                uplink = bytes_count
-                            elif i == 1:
-                                downlink = bytes_count
-                            else:
-                                # If more rules, add to download
-                                downlink += bytes_count
+                out_bytes = self._read_iptables_chain_bytes("mangle", f"PROXY_USER_{username}_OUT")
+                in_bytes = self._read_iptables_chain_bytes("mangle", f"PROXY_USER_{username}_IN")
+
+                if out_bytes:
+                    uplink = out_bytes[0]
+                if in_bytes:
+                    downlink = in_bytes[0]
+
+                if out_bytes is None and in_bytes is None:
+                    legacy = self._read_iptables_chain_bytes("filter", f"PROXY_USER_{username}")
+                    if legacy:
+                        uplink = legacy[0] if len(legacy) >= 1 else 0
+                        downlink = legacy[1] if len(legacy) >= 2 else 0
+                        if len(legacy) > 2:
+                            downlink += sum(legacy[2:])
             except Exception:
                 pass
 
@@ -1285,22 +1305,21 @@ class BandwidthMonitor:
             downlink = 0
 
             try:
-                result = subprocess.run(
-                    ["iptables", "-L", f"PROXY_USER_{username}", "-v", "-n", "-x"],
-                    capture_output=True, text=True, timeout=5
-                )
-                if result.returncode == 0:
-                    lines = result.stdout.splitlines()[2:]
-                    for i, line in enumerate(lines):
-                        parts = line.split()
-                        if len(parts) >= 2:
-                            bytes_count = int(parts[1])
-                            if i == 0:
-                                uplink = bytes_count
-                            elif i == 1:
-                                downlink = bytes_count
-                            else:
-                                downlink += bytes_count
+                out_bytes = self._read_iptables_chain_bytes("mangle", f"PROXY_USER_{username}_OUT")
+                in_bytes = self._read_iptables_chain_bytes("mangle", f"PROXY_USER_{username}_IN")
+
+                if out_bytes:
+                    uplink = out_bytes[0]
+                if in_bytes:
+                    downlink = in_bytes[0]
+
+                if out_bytes is None and in_bytes is None:
+                    legacy = self._read_iptables_chain_bytes("filter", f"PROXY_USER_{username}")
+                    if legacy:
+                        uplink = legacy[0] if len(legacy) >= 1 else 0
+                        downlink = legacy[1] if len(legacy) >= 2 else 0
+                        if len(legacy) > 2:
+                            downlink += sum(legacy[2:])
             except Exception:
                 pass
 

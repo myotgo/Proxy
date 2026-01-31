@@ -95,10 +95,22 @@ main() {
         exit 1
     fi
 
-    # Remove iptables accounting chain
+    # Remove iptables accounting chain (legacy)
     iptables -D OUTPUT -m owner --uid-owner "$USERNAME" -j "PROXY_USER_${USERNAME}" 2>/dev/null || true
+    iptables -D INPUT -m state --state ESTABLISHED,RELATED -j "PROXY_USER_${USERNAME}" 2>/dev/null || true
     iptables -F "PROXY_USER_${USERNAME}" 2>/dev/null || true
     iptables -X "PROXY_USER_${USERNAME}" 2>/dev/null || true
+
+    # Remove per-user connmark rules (mangle table)
+    USER_UID="$(id -u "$USERNAME" 2>/dev/null || true)"
+    if [ -n "$USER_UID" ]; then
+        iptables -t mangle -D OUTPUT -m owner --uid-owner "$USERNAME" -j "PROXY_USER_${USERNAME}_OUT" 2>/dev/null || true
+        iptables -t mangle -D INPUT -m connmark --mark "$USER_UID" -j "PROXY_USER_${USERNAME}_IN" 2>/dev/null || true
+    fi
+    iptables -t mangle -F "PROXY_USER_${USERNAME}_OUT" 2>/dev/null || true
+    iptables -t mangle -X "PROXY_USER_${USERNAME}_OUT" 2>/dev/null || true
+    iptables -t mangle -F "PROXY_USER_${USERNAME}_IN" 2>/dev/null || true
+    iptables -t mangle -X "PROXY_USER_${USERNAME}_IN" 2>/dev/null || true
 
     # Remove user info file
     rm -f "/root/proxy-users/$USERNAME.txt"

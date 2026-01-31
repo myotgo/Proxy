@@ -147,11 +147,30 @@ EOF
         exit 1
     fi
 
-    # Add iptables accounting for bandwidth tracking
+    # Add iptables accounting for bandwidth tracking (legacy chain)
     iptables -N "PROXY_USER_${USERNAME}" 2>/dev/null || true
     iptables -C OUTPUT -m owner --uid-owner "$USERNAME" -j "PROXY_USER_${USERNAME}" 2>/dev/null || \
         iptables -A OUTPUT -m owner --uid-owner "$USERNAME" -j "PROXY_USER_${USERNAME}" 2>/dev/null || true
-    iptables -C INPUT -m state --state ESTABLISHED,RELATED -j "PROXY_USER_${USERNAME}" 2>/dev/null || true
+
+    # Per-user upload/download accounting via connmark (mangle table)
+    USER_UID="$(id -u "$USERNAME" 2>/dev/null || true)"
+    if [ -n "$USER_UID" ]; then
+        iptables -t mangle -N "PROXY_USER_${USERNAME}_OUT" 2>/dev/null || true
+        iptables -t mangle -N "PROXY_USER_${USERNAME}_IN" 2>/dev/null || true
+
+        iptables -t mangle -C OUTPUT -m owner --uid-owner "$USERNAME" -j "PROXY_USER_${USERNAME}_OUT" 2>/dev/null || \
+            iptables -t mangle -A OUTPUT -m owner --uid-owner "$USERNAME" -j "PROXY_USER_${USERNAME}_OUT" 2>/dev/null || true
+        iptables -t mangle -C INPUT -m connmark --mark "$USER_UID" -j "PROXY_USER_${USERNAME}_IN" 2>/dev/null || \
+            iptables -t mangle -A INPUT -m connmark --mark "$USER_UID" -j "PROXY_USER_${USERNAME}_IN" 2>/dev/null || true
+
+        iptables -t mangle -C "PROXY_USER_${USERNAME}_OUT" -m owner --uid-owner "$USERNAME" -j CONNMARK --set-mark "$USER_UID" 2>/dev/null || \
+            iptables -t mangle -A "PROXY_USER_${USERNAME}_OUT" -m owner --uid-owner "$USERNAME" -j CONNMARK --set-mark "$USER_UID" 2>/dev/null || true
+        iptables -t mangle -C "PROXY_USER_${USERNAME}_OUT" -j RETURN 2>/dev/null || \
+            iptables -t mangle -A "PROXY_USER_${USERNAME}_OUT" -j RETURN 2>/dev/null || true
+
+        iptables -t mangle -C "PROXY_USER_${USERNAME}_IN" -m connmark --mark "$USER_UID" -j RETURN 2>/dev/null || \
+            iptables -t mangle -A "PROXY_USER_${USERNAME}_IN" -m connmark --mark "$USER_UID" -j RETURN 2>/dev/null || true
+    fi
 
     log "User $USERNAME added successfully"
 

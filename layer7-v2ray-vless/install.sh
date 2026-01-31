@@ -106,10 +106,32 @@ main() {
 
     # Create Xray config
     echo "Configuring Xray..."
-    cat > /usr/local/etc/xray/config.json <<EOF
+cat > /usr/local/etc/xray/config.json <<EOF
 {
   "log": {
     "loglevel": "warning"
+  },
+  "stats": {},
+  "api": {
+    "tag": "api",
+    "services": ["StatsService"]
+  },
+  "policy": {
+    "levels": {
+      "0": {
+        "handshake": 10,
+        "connIdle": 60,
+        "uplinkOnly": 2,
+        "downlinkOnly": 5,
+        "bufferSize": 16,
+        "statsUserUplink": true,
+        "statsUserDownlink": true
+      }
+    },
+    "system": {
+      "statsInboundUplink": true,
+      "statsInboundDownlink": true
+    }
   },
   "inbounds": [
     {
@@ -135,11 +157,29 @@ main() {
           "path": "$WS_PATH"
         }
       }
+    },
+    {
+      "listen": "127.0.0.1",
+      "port": 10085,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "127.0.0.1"
+      },
+      "tag": "api"
     }
   ],
   "outbounds": [
     { "protocol": "freedom" }
-  ]
+  ],
+  "routing": {
+    "rules": [
+      {
+        "inboundTag": ["api"],
+        "outboundTag": "api",
+        "type": "field"
+      }
+    ]
+  }
 }
 EOF
 
