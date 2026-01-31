@@ -49,6 +49,21 @@ disable_plesk() {
     return 1
 }
 
+stop_proxy_panel() {
+    if ! command -v systemctl >/dev/null 2>&1; then
+        return 1
+    fi
+    if systemctl list-unit-files 2>/dev/null | grep -q '^proxy-panel\.service'; then
+        if systemctl is-active --quiet proxy-panel; then
+            log_msg "Proxy panel is running. Stopping it to free port 8443..."
+            systemctl stop proxy-panel >/dev/null 2>&1 || true
+            sleep 2
+            return 0
+        fi
+    fi
+    return 1
+}
+
 # ─── Pre-flight ───────────────────────────────────────────────────────────────
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -130,6 +145,10 @@ fi
 
 if port_in_use "8443"; then
     disable_plesk || true
+fi
+
+if port_in_use "8443"; then
+    stop_proxy_panel || true
 fi
 
 if port_in_use "8443"; then
