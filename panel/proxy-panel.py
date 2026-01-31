@@ -365,11 +365,12 @@ class LayerManager:
 
     def _list_ssh_users(self):
         users = []
+        connected_users = self._get_ssh_connected_users()
         proxy_dir = Path("/root/proxy-users")
         if proxy_dir.exists():
             for f in proxy_dir.glob("*.txt"):
                 username = f.stem
-                user_info = {"username": username, "type": "ssh", "connected": False}
+                user_info = {"username": username, "type": "ssh", "connected": username in connected_users}
                 try:
                     content = f.read_text()
                     for line in content.splitlines():
@@ -377,19 +378,33 @@ class LayerManager:
                             user_info["created"] = line.split("Created:")[-1].strip()
                 except Exception:
                     pass
-                # Check if connected (ps -u detects SSH tunnel sessions
-                # which don't appear in 'who' for nologin shell users)
-                try:
-                    result = subprocess.run(
-                        ["ps", "-u", username, "--no-headers"],
-                        capture_output=True, text=True, timeout=5
-                    )
-                    if result.returncode == 0 and result.stdout.strip():
-                        user_info["connected"] = True
-                except Exception:
-                    pass
                 users.append(user_info)
         return users
+
+    def _get_ssh_connected_users(self):
+        """Best-effort detection of active SSH sessions per user."""
+        connected = set()
+        try:
+            result = subprocess.run(
+                ["ps", "-eo", "user=,cmd="],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout:
+                for line in result.stdout.splitlines():
+                    parts = line.strip().split(None, 1)
+                    if len(parts) != 2:
+                        continue
+                    user, cmd = parts
+                    if "sshd:" not in cmd:
+                        continue
+                    match = re.search(r"sshd:\s*([a-zA-Z0-9_-]+)", cmd)
+                    if match:
+                        connected.add(match.group(1))
+                    elif user not in ("root", "sshd"):
+                        connected.add(user)
+        except Exception:
+            pass
+        return connected
 
     def _list_v2ray_users(self):
         users = []

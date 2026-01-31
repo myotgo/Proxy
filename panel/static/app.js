@@ -74,6 +74,7 @@ const translations = {
         download_label: "Download",
         total_label: "Total",
         auto_refresh_note: "Auto refresh every 10s",
+        auto_refresh_note_5s: "Auto refresh every 5s",
 
         // Connections
         connections_title: "Active Connections",
@@ -189,6 +190,7 @@ const translations = {
         download_label: "\u062f\u0627\u0646\u0644\u0648\u062f",
         total_label: "\u06a9\u0644",
         auto_refresh_note: "\u0628\u0647\u200c\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06cc \u062e\u0648\u062f\u06a9\u0627\u0631 \u0647\u0631 \u06f1\u06f0 \u062b\u0627\u0646\u06cc\u0647",
+        auto_refresh_note_5s: "\u0628\u0647\u200c\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06cc \u062e\u0648\u062f\u06a9\u0627\u0631 \u0647\u0631 \u06f5 \u062b\u0627\u0646\u06cc\u0647",
 
         connections_title: "\u0627\u062a\u0635\u0627\u0644\u0627\u062a \u0641\u0639\u0627\u0644",
         refresh: "\u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06cc",
@@ -250,10 +252,10 @@ let switchPollInterval = null;
 let pendingSwitchLayer = null;
 let sectionRefreshInterval = null;
 const SECTION_REFRESH_MS = {
-    overview: 30000,
-    users: 20000,
+    overview: 20000,
+    users: 5000,
     bandwidth: 10000,
-    connections: 10000,
+    connections: 5000,
     settings: 30000
 };
 

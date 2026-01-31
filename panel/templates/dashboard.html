@@ -116,11 +116,18 @@
         <section id="section-users" class="section">
             <div class="section-header">
                 <h1 data-i18n="users_title">User Management</h1>
-                <button class="btn btn-primary" onclick="showAddUserModal()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    <span data-i18n="add_user">Add User</span>
-                </button>
+                <div class="bandwidth-controls">
+                    <button class="btn btn-secondary btn-sm" onclick="loadUsers()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        <span data-i18n="refresh">Refresh</span>
+                    </button>
+                    <button class="btn btn-primary" onclick="showAddUserModal()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span data-i18n="add_user">Add User</span>
+                    </button>
+                </div>
             </div>
+            <div class="bandwidth-refresh-note" data-i18n="auto_refresh_note_5s">Auto refresh every 5s</div>
 
             <div class="user-count">
                 <span data-i18n="total_users">Total users</span>: <strong id="user-count">0</strong>
@@ -209,6 +216,7 @@
                     <span data-i18n="refresh">Refresh</span>
                 </button>
             </div>
+            <div class="bandwidth-refresh-note" data-i18n="auto_refresh_note_5s">Auto refresh every 5s</div>
             <div class="table-container">
                 <table class="data-table" id="connections-table">
                     <thead>
