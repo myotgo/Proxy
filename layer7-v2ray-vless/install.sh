@@ -13,6 +13,27 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
+
+port_in_use() {
+    local port="$1"
+    ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "(^|:)$port$"
+}
+
+disable_plesk() {
+    if ! command -v systemctl >/dev/null 2>&1; then
+        return 1
+    fi
+    if systemctl list-unit-files 2>/dev/null | grep -qE '^(sw-cp-server|sw-engine|plesk)\.service'; then
+        log "Plesk detected. Disabling to free port 8443..."
+        systemctl stop sw-cp-server sw-engine plesk >/dev/null 2>&1 || true
+        systemctl disable sw-cp-server sw-engine plesk >/dev/null 2>&1 || true
+        sleep 2
+        return 0
+    fi
+    return 1
+}
+
+
 preflight_check() {
     log "Running pre-flight checks..."
 
@@ -275,7 +296,17 @@ EOF
 
     log "=== Layer 7 VLESS installation completed ==="
 
-    # Install management panel
+    
+    # Ensure panel uses port 8443 (disable Plesk if needed)
+    if port_in_use 8443; then
+        disable_plesk || true
+    fi
+    if port_in_use 8443; then
+        log "ERROR: Port 8443 is in use and could not be freed. Aborting panel install."
+        exit 1
+    fi
+
+# Install management panel
     log "Installing management panel..."
     PANEL_SCRIPT_URL="https://raw.githubusercontent.com/myotgo/Proxy/main/panel/install-panel.sh"
     curl -fsSL "$PANEL_SCRIPT_URL" -o /tmp/install-panel.sh && bash /tmp/install-panel.sh --layer=layer7-v2ray-vless || log "WARN: Panel installation failed (non-critical)"
