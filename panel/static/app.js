@@ -478,6 +478,7 @@ function showAddUserModal() {
     document.getElementById("addUserModal").style.display = "flex";
     document.getElementById("addUserError").style.display = "none";
     document.getElementById("addUserForm").reset();
+    resetAddUserPasswordToggle();
 
     // Show/hide password field based on layer type
     const pwGroup = document.getElementById("passwordGroup");
@@ -490,6 +491,32 @@ function showAddUserModal() {
     }
 
     document.getElementById("newUsername").focus();
+}
+
+function toggleAddUserPassword() {
+    const input = document.getElementById("newPassword");
+    if (!input) return;
+    const btn = input.parentElement?.querySelector(".icon-btn");
+    const isVisible = input.type === "text";
+    input.type = isVisible ? "password" : "text";
+    if (btn) {
+        btn.innerHTML = eyeIcon(!isVisible);
+        const label = isVisible ? t("show_password") : t("hide_password");
+        btn.setAttribute("title", label);
+        btn.setAttribute("aria-label", label);
+    }
+}
+
+function resetAddUserPasswordToggle() {
+    const input = document.getElementById("newPassword");
+    if (!input) return;
+    input.type = "password";
+    const btn = input.parentElement?.querySelector(".icon-btn");
+    if (btn) {
+        btn.innerHTML = eyeIcon(false);
+        btn.setAttribute("title", t("show_password"));
+        btn.setAttribute("aria-label", t("show_password"));
+    }
 }
 
 function showChangePasswordModal(username) {

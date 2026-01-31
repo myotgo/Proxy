@@ -306,8 +306,18 @@
                 </div>
                 <div class="form-group" id="passwordGroup">
                     <label for="newPassword" data-i18n="password">Password</label>
-                    <input type="password" id="newPassword" minlength="8"
-                           placeholder="Minimum 8 characters">
+                    <div class="input-with-icon">
+                        <input type="password" id="newPassword" minlength="8"
+                               placeholder="Minimum 8 characters">
+                        <button class="icon-btn" type="button" onclick="toggleAddUserPassword()" title="Show password" aria-label="Show password">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.77 21.77 0 0 1 5.17-6.62"></path>
+                                <path d="M1 1l22 22"></path>
+                                <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.86 21.86 0 0 1-3.2 4.83"></path>
+                                <path d="M14.12 14.12a3 3 0 0 1-4.24-4.24"></path>
+                            </svg>
+                        </button>
+                    </div>
                     <small data-i18n="password_hint">Minimum 8 characters.</small>
                 </div>
                 <div id="addUserError" class="error-message" style="display:none"></div>
