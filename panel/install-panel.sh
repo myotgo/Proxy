@@ -49,6 +49,13 @@ disable_plesk() {
     return 1
 }
 
+proxy_panel_active() {
+    if ! command -v systemctl >/dev/null 2>&1; then
+        return 1
+    fi
+    systemctl is-active --quiet proxy-panel
+}
+
 stop_proxy_panel() {
     if ! command -v systemctl >/dev/null 2>&1; then
         return 1
@@ -152,8 +159,12 @@ if port_in_use "8443"; then
 fi
 
 if port_in_use "8443"; then
+    if proxy_panel_active; then
+        log_msg "Port 8443 is already in use by proxy-panel. Continuing reinstall..."
+    else
     log_msg "ERROR: Port 8443 is in use and could not be freed. Aborting panel install."
     exit 1
+    fi
 fi
 
 # ─── Copy Management Scripts ──────────────────────────────────────────────────
